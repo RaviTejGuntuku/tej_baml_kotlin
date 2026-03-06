@@ -1,6 +1,0 @@
-packages:
-  - "pkg-*"
-  - "app-*"
-
-catalog:
-  jotai: ^2.10.0

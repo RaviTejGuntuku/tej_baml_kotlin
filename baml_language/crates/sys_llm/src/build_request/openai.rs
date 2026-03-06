@@ -75,8 +75,46 @@ impl LlmRequestBuilder for OpenAiBuilder<'_> {
 /// ```
 fn prompt_to_openai_messages(prompt: &bex_vm_types::PromptAst) -> Vec<serde_json::Value> {
     match prompt.as_ref() {
-        PromptAst::Vec(items) => items.iter().filter_map(prompt_node_to_message).collect(),
-        _ => prompt_node_to_message(prompt).into_iter().collect(),
+        PromptAst::Vec(items) => {
+            let messages: Vec<_> = items.iter().filter_map(prompt_node_to_message).collect();
+            if messages.is_empty() {
+                // If no Message nodes found, wrap the whole thing as a user message
+                vec![wrap_as_user_message(prompt)]
+            } else {
+                messages
+            }
+        }
+        PromptAst::Message { .. } => prompt_node_to_message(prompt).into_iter().collect(),
+        PromptAst::Simple(_) => {
+            // Plain text prompt without role markers — wrap as a user message
+            vec![wrap_as_user_message(prompt)]
+        }
+    }
+}
+
+/// Wrap a non-Message PromptAst as a simple user message.
+fn wrap_as_user_message(prompt: &bex_vm_types::PromptAst) -> serde_json::Value {
+    let text = match prompt.as_ref() {
+        PromptAst::Simple(content) => prompt_ast_simple_to_string(content),
+        other => format!("{:?}", other),
+    };
+    let mut msg = serde_json::Map::new();
+    msg.insert("role".to_string(), serde_json::Value::String("user".to_string()));
+    msg.insert(
+        "content".to_string(),
+        serde_json::Value::Array(vec![serde_json::json!({"type": "text", "text": text})]),
+    );
+    serde_json::Value::Object(msg)
+}
+
+/// Extract plain text from a PromptAstSimple.
+fn prompt_ast_simple_to_string(simple: &baml_builtins::PromptAstSimple) -> String {
+    match simple {
+        baml_builtins::PromptAstSimple::String(s) => s.clone(),
+        baml_builtins::PromptAstSimple::Multiple(parts) => {
+            parts.iter().map(|p| prompt_ast_simple_to_string(p)).collect::<Vec<_>>().join("")
+        }
+        baml_builtins::PromptAstSimple::Media(_) => "[media]".to_string(),
     }
 }
 
