@@ -528,7 +528,7 @@ mod tests {
             "f",
         );
         assert_eq!(ns, "Color");
-        assert_eq!(s, "types.Color?");
+        assert_eq!(s, "baml_client.types.Color?");
     }
 
     #[test]
@@ -550,7 +550,7 @@ mod tests {
             "f",
         );
         assert_eq!(ns, "Color?");
-        assert_eq!(s, "types.Color?");
+        assert_eq!(s, "baml_client.types.Color?");
     }
 
     #[test]
@@ -615,14 +615,14 @@ mod tests {
         let (ns, s) = serialize_field("class T { f image }", "T", "f");
         assert_eq!(ns, "Image");
         // In stream_types package, media types get types. prefix
-        assert_eq!(s, "types.Image?");
+        assert_eq!(s, "baml_client.types.Image?");
     }
 
     #[test]
     fn test_audio_type() {
         let (ns, s) = serialize_field("class T { f audio }", "T", "f");
         assert_eq!(ns, "Audio");
-        assert_eq!(s, "types.Audio?");
+        assert_eq!(s, "baml_client.types.Audio?");
     }
 
     // ==================== STREAMING ATTRIBUTES ====================

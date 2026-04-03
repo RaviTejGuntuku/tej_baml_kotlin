@@ -13,7 +13,7 @@ enum class {{ name }}(val value: String) : BamlSerializable {
     {%- endfor %}
     {%- endif %}
 
-    override fun encode(): com.boundaryml.baml.cffi.v1.HostValue {
+    override fun encode(): com.boundaryml.baml.cffi.HostValue {
         return Serde.encodeEnum("{{ name }}", this.value)
     }
 

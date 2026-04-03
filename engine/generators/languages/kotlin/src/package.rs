@@ -47,8 +47,8 @@ impl Package {
         if self.package_path == other.package_path {
             return "".to_string();
         }
-        // For Kotlin, we use the last segment as a prefix (like a sub-package)
-        format!("{}.", self.package_path.last().unwrap())
+        // Kotlin requires fully-qualified names for cross-package references
+        format!("{}.", self.package_path.join("."))
     }
 
     #[allow(dead_code)]

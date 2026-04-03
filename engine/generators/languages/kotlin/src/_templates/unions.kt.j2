@@ -7,10 +7,10 @@ sealed class {{ name }} {
     {% endfor %}
 
     companion object : BamlDeserializable<{{ name }}> {
-        override fun decode(fields: Map<String, Any?>): {{ name }} {
-            val variantName = fields["__variant"] as? String
-                ?: throw IllegalArgumentException("Missing __variant in union {{ name }}")
-            val value = fields["__value"]
+        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): {{ name }} {
+            val variantName = fields["variant_name"] as? String
+                ?: throw IllegalArgumentException("Missing variant_name in union {{ name }}")
+            val value = fields["value"]
             return when (variantName) {
                 {% for variant in variants -%}
                 "{{ variant.cffi_name }}" -> {{ variant.name }}(value as {{ variant.type_.serialize_type(pkg) }})

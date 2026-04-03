@@ -4,79 +4,12 @@ import com.boundaryml.baml.*
 import com.boundaryml.baml.cffi.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class EncodeTest {
 
-    @Test
-    fun `encode null produces empty HostValue`() {
-        val result = Serde.encodeValue(null)
-        assertEquals(HostValue.ValueCase.VALUE_NOT_SET, result.valueCase)
-    }
-
-    @Test
-    fun `encode string`() {
-        val result = Serde.encodeValue("hello")
-        assertEquals(HostValue.ValueCase.STRING_VALUE, result.valueCase)
-        assertEquals("hello", result.stringValue)
-    }
-
-    @Test
-    fun `encode empty string`() {
-        val result = Serde.encodeValue("")
-        assertEquals(HostValue.ValueCase.STRING_VALUE, result.valueCase)
-        assertEquals("", result.stringValue)
-    }
-
-    @Test
-    fun `encode int`() {
-        val result = Serde.encodeValue(42)
-        assertEquals(HostValue.ValueCase.INT_VALUE, result.valueCase)
-        assertEquals(42L, result.intValue)
-    }
-
-    @Test
-    fun `encode long`() {
-        val result = Serde.encodeValue(Long.MAX_VALUE)
-        assertEquals(HostValue.ValueCase.INT_VALUE, result.valueCase)
-        assertEquals(Long.MAX_VALUE, result.intValue)
-    }
-
-    @Test
-    fun `encode long min value`() {
-        val result = Serde.encodeValue(Long.MIN_VALUE)
-        assertEquals(HostValue.ValueCase.INT_VALUE, result.valueCase)
-        assertEquals(Long.MIN_VALUE, result.intValue)
-    }
-
-    @Test
-    fun `encode double`() {
-        val result = Serde.encodeValue(3.14)
-        assertEquals(HostValue.ValueCase.FLOAT_VALUE, result.valueCase)
-        assertEquals(3.14, result.floatValue)
-    }
-
-    @Test
-    fun `encode float`() {
-        val result = Serde.encodeValue(2.5f)
-        assertEquals(HostValue.ValueCase.FLOAT_VALUE, result.valueCase)
-        assertEquals(2.5, result.floatValue)
-    }
-
-    @Test
-    fun `encode boolean true`() {
-        val result = Serde.encodeValue(true)
-        assertEquals(HostValue.ValueCase.BOOL_VALUE, result.valueCase)
-        assertTrue(result.boolValue)
-    }
-
-    @Test
-    fun `encode boolean false`() {
-        val result = Serde.encodeValue(false)
-        assertEquals(HostValue.ValueCase.BOOL_VALUE, result.valueCase)
-        assertFalse(result.boolValue)
-    }
+    // Primitive encode tests (null, string, int, long, double, float, bool) removed —
+    // already covered by RoundTripTest.
 
     @Test
     fun `encode list of strings`() {

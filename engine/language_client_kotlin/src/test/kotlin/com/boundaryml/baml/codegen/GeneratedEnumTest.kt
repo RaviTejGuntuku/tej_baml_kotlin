@@ -1,5 +1,7 @@
 package com.boundaryml.baml.codegen
 
+import baml_client.registerBamlTypes
+import baml_client.types.Sentiment
 import com.boundaryml.baml.*
 import com.boundaryml.baml.cffi.*
 import org.junit.jupiter.api.Test
@@ -7,27 +9,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 /**
- * Tests the patterns that a future Kotlin code generator would produce for BAML enums.
+ * Tests that real code-generator enum output (baml_client.types.Sentiment)
+ * correctly encodes and decodes through the SDK.
  */
-
-// --- Simulated generated code ---
-
-enum class SentimentGenerated : BamlSerializable {
-    POSITIVE,
-    NEGATIVE,
-    NEUTRAL;
-
-    override fun encode(): HostValue = Serde.encodeEnum("Sentiment", name)
-    override fun bamlTypeName(): String = "Sentiment"
-}
-
-// --- Tests ---
-
 class GeneratedEnumTest {
+
+    private fun typeMap(): BamlTypeMap {
+        val tm = BamlTypeMap()
+        registerBamlTypes(tm)
+        return tm
+    }
 
     @Test
     fun `encode enum produces correct HostEnumValue`() {
-        val encoded = SentimentGenerated.POSITIVE.encode()
+        val encoded = Sentiment.POSITIVE.encode()
         assertEquals(HostValue.ValueCase.ENUM_VALUE, encoded.valueCase)
         assertEquals("Sentiment", encoded.enumValue.name)
         assertEquals("POSITIVE", encoded.enumValue.value)
@@ -35,18 +30,16 @@ class GeneratedEnumTest {
 
     @Test
     fun `encode all enum variants`() {
-        for (variant in SentimentGenerated.entries) {
+        for (variant in Sentiment.entries) {
             val encoded = variant.encode()
             assertEquals("Sentiment", encoded.enumValue.name)
-            assertEquals(variant.name, encoded.enumValue.value)
+            assertEquals(variant.value, encoded.enumValue.value)
         }
     }
 
     @Test
     fun `decode enum with registered type`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Sentiment", SentimentGenerated::class)
-
+        val tm = typeMap()
         val holder = cFFIValueHolder {
             enumValue = cFFIValueEnum {
                 name = cFFITypeName {
@@ -56,16 +49,13 @@ class GeneratedEnumTest {
                 value = "NEGATIVE"
             }
         }
-
-        val result = Serde.decodeValue(holder, typeMap)
-        assertEquals(SentimentGenerated.NEGATIVE, result)
+        val result = Serde.decodeValue(holder, tm)
+        assertEquals(Sentiment.NEGATIVE, result)
     }
 
     @Test
     fun `decode unknown enum variant falls back to dynamic`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Sentiment", SentimentGenerated::class)
-
+        val tm = typeMap()
         val holder = cFFIValueHolder {
             enumValue = cFFIValueEnum {
                 name = cFFITypeName {
@@ -76,8 +66,7 @@ class GeneratedEnumTest {
                 isDynamic = true
             }
         }
-
-        val result = Serde.decodeValue(holder, typeMap)
+        val result = Serde.decodeValue(holder, tm)
         assertIs<DynamicBamlEnum>(result)
         assertEquals("VERY_POSITIVE", result.value)
     }
@@ -85,7 +74,7 @@ class GeneratedEnumTest {
     @Test
     fun `enum as function arg encodes correctly`() {
         val bytes = Serde.encodeArgs(mapOf(
-            "sentiment" to SentimentGenerated.NEUTRAL,
+            "sentiment" to Sentiment.NEUTRAL,
             "text" to "hello"
         ))
         val parsed = HostFunctionArguments.parseFrom(bytes)
@@ -95,5 +84,12 @@ class GeneratedEnumTest {
         assertEquals("sentiment", sentimentArg.stringKey)
         assertEquals(HostValue.ValueCase.ENUM_VALUE, sentimentArg.value.valueCase)
         assertEquals("NEUTRAL", sentimentArg.value.enumValue.value)
+    }
+
+    @Test
+    fun `fromString resolves known variant`() {
+        assertEquals(Sentiment.POSITIVE, Sentiment.fromString("POSITIVE"))
+        assertEquals(Sentiment.NEGATIVE, Sentiment.fromString("NEGATIVE"))
+        assertEquals(Sentiment.NEUTRAL, Sentiment.fromString("NEUTRAL"))
     }
 }

@@ -516,8 +516,8 @@ mod render_tests {
         assert!(classes.contains("val address: Address"), "Missing address field");
 
         let funcs = get_file(&files, "BamlFunctions.kt");
-        // From baml_client package, types.Person is correct (cross-package reference)
-        assert!(funcs.contains("): types.Person"), "Function should return types.Person: {}", funcs);
+        // From baml_client package, fully-qualified cross-package reference
+        assert!(funcs.contains("): baml_client.types.Person"), "Function should return baml_client.types.Person: {}", funcs);
     }
 
     #[test]
@@ -619,16 +619,19 @@ mod render_tests {
             type_map
         );
         assert!(
-            type_map.contains("TYPES.Person"),
-            "Missing Person type registration"
+            type_map.contains("\"TYPES\", \"Person\""),
+            "Missing Person type registration: {}",
+            type_map
         );
         assert!(
-            type_map.contains("TYPES.Color"),
-            "Missing Color type registration"
+            type_map.contains("\"TYPES\", \"Color\""),
+            "Missing Color type registration: {}",
+            type_map
         );
         assert!(
-            type_map.contains("STREAM_TYPES.Person"),
-            "Missing stream Person registration"
+            type_map.contains("\"STREAM_TYPES\", \"Person\""),
+            "Missing stream Person registration: {}",
+            type_map
         );
     }
 
@@ -673,8 +676,8 @@ mod render_tests {
 
         let funcs = get_file(&files, "BamlFunctions.kt");
         assert!(
-            funcs.contains("): types.Sentiment"),
-            "Function should return types.Sentiment: {}",
+            funcs.contains("): baml_client.types.Sentiment"),
+            "Function should return baml_client.types.Sentiment: {}",
             funcs
         );
 
@@ -705,11 +708,11 @@ mod render_tests {
         assert!(classes.contains("val photo: Image"), "Missing image field: {}", classes);
         assert!(classes.contains("val doc: Image?"), "Missing optional image field");
 
-        // Stream types should get types. prefix for media
+        // Stream types should get fully-qualified prefix for media
         let stream = get_file(&files, "stream_types/Classes.kt");
         assert!(
-            stream.contains("types.Image?"),
-            "Streaming image should have types. prefix: {}",
+            stream.contains("baml_client.types.Image?"),
+            "Streaming image should have baml_client.types. prefix: {}",
             stream
         );
     }
@@ -743,6 +746,98 @@ mod render_tests {
     }
 
     // ==================== ALL GENERATED FILES PRESENT ====================
+
+    /// Generate fixture files for the Kotlin SDK codegen tests.
+    /// Run with: cargo test -p generators-kotlin -- write_codegen_fixture --nocapture --ignored
+    #[test]
+    #[ignore]
+    fn write_codegen_fixture() {
+        let baml = r##"
+            class Person {
+                name string
+                age int
+                email string?
+            }
+
+            class Address {
+                street string
+                city string
+                zip string
+            }
+
+            enum Sentiment {
+                POSITIVE
+                NEGATIVE
+                NEUTRAL
+            }
+
+            class Receipt {
+                store string
+                items string[]
+                total float
+            }
+
+            class SearchResult {
+                query string
+                result int | string
+            }
+
+            function ExtractPerson(input: string) -> Person {
+                client "openai/gpt-4o"
+                prompt #"Extract person from: {{ input }}"#
+            }
+
+            function ClassifySentiment(text: string) -> Sentiment {
+                client "openai/gpt-4o"
+                prompt #"Classify: {{ text }}"#
+            }
+
+            function ExtractReceipt(text: string) -> Receipt {
+                client "openai/gpt-4o"
+                prompt #"Extract receipt: {{ text }}"#
+            }
+
+            function Greet(name: string, greeting: string) -> string {
+                client "openai/gpt-4o"
+                prompt #"{{ greeting }} {{ name }}"#
+            }
+
+            function Search(query: string) -> SearchResult {
+                client "openai/gpt-4o"
+                prompt #"Search: {{ query }}"#
+            }
+        "##;
+
+        let files = render_all(baml);
+
+        // Write to a well-known output directory
+        let out_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("language_client_kotlin/src/test/kotlin/com/boundaryml/baml/codegen/generated");
+
+        std::fs::create_dir_all(&out_dir).unwrap();
+        std::fs::create_dir_all(out_dir.join("types")).unwrap();
+        std::fs::create_dir_all(out_dir.join("stream_types")).unwrap();
+
+        // Skip function files — they reference a `client` that requires a runtime context.
+        // We only need types/enums/unions for codegen compilation tests.
+        let skip = ["BamlFunctions.kt", "BamlStreamFunctions.kt"];
+        for (name, content) in &files {
+            if skip.iter().any(|s| name.ends_with(s)) {
+                continue;
+            }
+            let path = out_dir.join(name);
+            std::fs::write(&path, content).unwrap();
+            println!("Wrote: {}", path.display());
+        }
+
+        println!("\nGenerated {} files to {}", files.len(), out_dir.display());
+    }
 
     #[test]
     fn test_all_files_generated() {

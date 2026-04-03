@@ -120,6 +120,19 @@ impl TypeKotlin {
         }
     }
 
+    /// Returns the name for this type when used as a variant class inside a sealed union.
+    /// Appends "Val" to primitive names that would shadow kotlin.String, kotlin.Int, etc.
+    pub fn variant_class_name(&self) -> String {
+        match self {
+            TypeKotlin::String(None) => "StringVal".to_string(),
+            TypeKotlin::Int(None) => "IntVal".to_string(),
+            TypeKotlin::Float => "FloatVal".to_string(),
+            TypeKotlin::Bool(None) => "BoolVal".to_string(),
+            TypeKotlin::Null => "NullVal".to_string(),
+            _ => self.default_name_within_union(),
+        }
+    }
+
     /// Returns the Kotlin default value for this type.
     #[allow(dead_code)]
     pub fn default_value(&self, pkg: &CurrentRenderPackage) -> String {

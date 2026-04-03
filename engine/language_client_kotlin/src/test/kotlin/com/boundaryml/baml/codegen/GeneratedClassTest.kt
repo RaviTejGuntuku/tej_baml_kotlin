@@ -1,73 +1,33 @@
 package com.boundaryml.baml.codegen
 
+import baml_client.registerBamlTypes
+import baml_client.types.Address
+import baml_client.types.Person
+import baml_client.types.Receipt
 import com.boundaryml.baml.*
 import com.boundaryml.baml.cffi.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /**
- * Tests the patterns that a future Kotlin code generator would produce for BAML classes.
- * Hand-writes a generated data class to validate the SDK's encode/decode works end-to-end.
+ * Tests that real code-generator output (in baml_client.types) correctly
+ * encodes and decodes through the SDK's Serde layer.
  */
-
-// --- Simulated generated code ---
-
-data class PersonGenerated(
-    val name: String,
-    val age: Int,
-    val email: String? = null
-) : BamlSerializable {
-    override fun encode(): HostValue = Serde.encodeClass(
-        "Person",
-        buildMap {
-            put("name", name)
-            put("age", age)
-            if (email != null) put("email", email)
-        }
-    )
-    override fun bamlTypeName(): String = "Person"
-
-    companion object : BamlDeserializable<PersonGenerated> {
-        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): PersonGenerated {
-            return PersonGenerated(
-                name = fields["name"] as String,
-                age = (fields["age"] as Long).toInt(),
-                email = fields["email"] as? String
-            )
-        }
-    }
-}
-
-data class AddressGenerated(
-    val street: String,
-    val city: String,
-    val zip: String
-) : BamlSerializable {
-    override fun encode(): HostValue = Serde.encodeClass(
-        "Address",
-        mapOf("street" to street, "city" to city, "zip" to zip)
-    )
-    override fun bamlTypeName(): String = "Address"
-
-    companion object : BamlDeserializable<AddressGenerated> {
-        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): AddressGenerated {
-            return AddressGenerated(
-                street = fields["street"] as String,
-                city = fields["city"] as String,
-                zip = fields["zip"] as String
-            )
-        }
-    }
-}
-
-// --- Tests ---
-
 class GeneratedClassTest {
+
+    private fun typeMap(): BamlTypeMap {
+        val tm = BamlTypeMap()
+        registerBamlTypes(tm)
+        return tm
+    }
+
+    // --- Person ---
 
     @Test
     fun `encode person produces correct HostClassValue`() {
-        val person = PersonGenerated("Alice", 30, "alice@test.com")
+        val person = Person("Alice", 30, "alice@test.com")
         val encoded = person.encode()
         assertEquals(HostValue.ValueCase.CLASS_VALUE, encoded.valueCase)
         assertEquals("Person", encoded.classValue.name)
@@ -75,17 +35,16 @@ class GeneratedClassTest {
     }
 
     @Test
-    fun `encode person with null email omits email field`() {
-        val person = PersonGenerated("Bob", 25)
+    fun `encode person with null email includes null field`() {
+        val person = Person("Bob", 25, null)
         val encoded = person.encode()
-        assertEquals(2, encoded.classValue.fieldsCount)
+        // Generated code includes all fields (null encoded as default HostValue)
+        assertEquals(3, encoded.classValue.fieldsCount)
     }
 
     @Test
     fun `decode person from CFFIValueHolder`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Person", PersonGenerated::class, PersonGenerated)
-
+        val tm = typeMap()
         val holder = cFFIValueHolder {
             classValue = cFFIValueClass {
                 name = cFFITypeName {
@@ -107,18 +66,16 @@ class GeneratedClassTest {
             }
         }
 
-        val result = Serde.decodeValue(holder, typeMap)
-        assertIs<PersonGenerated>(result)
+        val result = Serde.decodeValue(holder, tm)
+        assertIs<Person>(result)
         assertEquals("Charlie", result.name)
-        assertEquals(35, result.age)
+        assertEquals(35L, result.age)
         assertEquals("charlie@test.com", result.email)
     }
 
     @Test
     fun `decode person with null optional field`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Person", PersonGenerated::class, PersonGenerated)
-
+        val tm = typeMap()
         val holder = cFFIValueHolder {
             classValue = cFFIValueClass {
                 name = cFFITypeName {
@@ -136,51 +93,19 @@ class GeneratedClassTest {
             }
         }
 
-        val result = Serde.decodeValue(holder, typeMap)
-        assertIs<PersonGenerated>(result)
+        val result = Serde.decodeValue(holder, tm)
+        assertIs<Person>(result)
         assertEquals("Dave", result.name)
-        assertEquals(40, result.age)
-        assertEquals(null, result.email)
+        assertEquals(40L, result.age)
+        assertNull(result.email)
     }
 
-    @Test
-    fun `encode then decode roundtrip`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Person", PersonGenerated::class, PersonGenerated)
-
-        val original = PersonGenerated("Eve", 28, "eve@test.com")
-        val encoded = original.encode()
-
-        // Simulate what the engine would return
-        val outbound = cFFIValueHolder {
-            classValue = cFFIValueClass {
-                name = cFFITypeName {
-                    namespace = CFFITypeNamespace.TYPES
-                    this.name = "Person"
-                }
-                // Copy fields from encoded
-                fields.addAll(encoded.classValue.fieldsList.map { entry ->
-                    cFFIMapEntry {
-                        key = entry.stringKey
-                        value = convertHostToCffi(entry.value)
-                    }
-                })
-            }
-        }
-
-        val decoded = Serde.decodeValue(outbound, typeMap)
-        assertIs<PersonGenerated>(decoded)
-        assertEquals(original.name, decoded.name)
-        assertEquals(original.age, decoded.age)
-        assertEquals(original.email, decoded.email)
-    }
+    // --- Address ---
 
     @Test
-    fun `nested class encode and decode`() {
-        val typeMap = BamlTypeMap()
-        typeMap.register("TYPES", "Address", AddressGenerated::class, AddressGenerated)
-
-        val address = AddressGenerated("123 Main St", "NYC", "10001")
+    fun `address encode and decode roundtrip`() {
+        val tm = typeMap()
+        val address = Address("123 Main St", "NYC", "10001")
         val encoded = address.encode()
 
         assertEquals("Address", encoded.classValue.name)
@@ -206,20 +131,52 @@ class GeneratedClassTest {
                 })
             }
         }
-        val decoded = Serde.decodeValue(holder, typeMap)
-        assertIs<AddressGenerated>(decoded)
-        assertEquals(address, decoded)
+        val decoded = Serde.decodeValue(holder, tm)
+        assertIs<Address>(decoded)
+        assertEquals(address.street, decoded.street)
+        assertEquals(address.city, decoded.city)
+        assertEquals(address.zip, decoded.zip)
     }
-}
 
-// Helper to convert HostValue to CFFIValueHolder (for test simulation)
-private fun convertHostToCffi(hostValue: HostValue): CFFIValueHolder {
-    return when (hostValue.valueCase) {
-        HostValue.ValueCase.STRING_VALUE -> cFFIValueHolder { stringValue = hostValue.stringValue }
-        HostValue.ValueCase.INT_VALUE -> cFFIValueHolder { intValue = hostValue.intValue }
-        HostValue.ValueCase.FLOAT_VALUE -> cFFIValueHolder { floatValue = hostValue.floatValue }
-        HostValue.ValueCase.BOOL_VALUE -> cFFIValueHolder { boolValue = hostValue.boolValue }
-        HostValue.ValueCase.VALUE_NOT_SET -> cFFIValueHolder { nullValue = CFFIValueNull.getDefaultInstance() }
-        else -> CFFIValueHolder.getDefaultInstance()
+    // --- Receipt (class with list field) ---
+
+    @Test
+    fun `receipt with list field encodes and decodes`() {
+        val tm = typeMap()
+        val receipt = Receipt("Store A", listOf("milk", "bread"), 12.50)
+        val encoded = receipt.encode()
+
+        assertEquals("Receipt", encoded.classValue.name)
+
+        val holder = cFFIValueHolder {
+            classValue = cFFIValueClass {
+                name = cFFITypeName {
+                    namespace = CFFITypeNamespace.TYPES
+                    this.name = "Receipt"
+                }
+                fields.add(cFFIMapEntry {
+                    key = "store"
+                    value = cFFIValueHolder { stringValue = "Store A" }
+                })
+                fields.add(cFFIMapEntry {
+                    key = "items"
+                    value = cFFIValueHolder {
+                        listValue = cFFIValueList {
+                            items.add(cFFIValueHolder { stringValue = "milk" })
+                            items.add(cFFIValueHolder { stringValue = "bread" })
+                        }
+                    }
+                })
+                fields.add(cFFIMapEntry {
+                    key = "total"
+                    value = cFFIValueHolder { floatValue = 12.50 }
+                })
+            }
+        }
+        val decoded = Serde.decodeValue(holder, tm)
+        assertIs<Receipt>(decoded)
+        assertEquals("Store A", decoded.store)
+        assertEquals(listOf("milk", "bread"), decoded.items)
+        assertEquals(12.50, decoded.total)
     }
 }

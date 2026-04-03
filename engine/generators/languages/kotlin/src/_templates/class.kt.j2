@@ -13,7 +13,7 @@ data class {{ name }}(
     {%- endif %}
 ) : BamlSerializable {
 
-    override fun encode(): com.boundaryml.baml.cffi.v1.HostValue {
+    override fun encode(): com.boundaryml.baml.cffi.HostValue {
         return Serde.encodeClass("{{ name }}", mapOf(
             {% for field in fields -%}
             "{{ field.name }}" to {{ field.name }}{% if !loop.last %},{% endif %}
@@ -24,7 +24,7 @@ data class {{ name }}(
     override fun bamlTypeName(): String = "{{ name }}"
 
     companion object : BamlDeserializable<{{ name }}> {
-        override fun decode(fields: Map<String, Any?>): {{ name }} {
+        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): {{ name }} {
             return {{ name }}(
                 {% for field in fields -%}
                 {{ field.name }} = fields["{{ field.name }}"] as {{ field.type.serialize_type(pkg) }}{% if !loop.last %},{% endif %}

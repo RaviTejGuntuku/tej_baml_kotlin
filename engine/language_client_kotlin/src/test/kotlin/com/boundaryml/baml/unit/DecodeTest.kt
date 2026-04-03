@@ -10,59 +10,8 @@ import kotlin.test.assertTrue
 
 class DecodeTest {
 
-    @Test
-    fun `decode null value`() {
-        val holder = cFFIValueHolder {
-            nullValue = CFFIValueNull.getDefaultInstance()
-        }
-        val result = Serde.decodeValue(holder)
-        assertNull(result)
-    }
-
-    @Test
-    fun `decode string value`() {
-        val holder = cFFIValueHolder {
-            stringValue = "hello world"
-        }
-        val result = Serde.decodeValue(holder)
-        assertEquals("hello world", result)
-    }
-
-    @Test
-    fun `decode int value`() {
-        val holder = cFFIValueHolder {
-            intValue = 42L
-        }
-        val result = Serde.decodeValue(holder)
-        assertEquals(42L, result)
-    }
-
-    @Test
-    fun `decode float value`() {
-        val holder = cFFIValueHolder {
-            floatValue = 3.14
-        }
-        val result = Serde.decodeValue(holder)
-        assertEquals(3.14, result)
-    }
-
-    @Test
-    fun `decode bool value true`() {
-        val holder = cFFIValueHolder {
-            boolValue = true
-        }
-        val result = Serde.decodeValue(holder)
-        assertEquals(true, result)
-    }
-
-    @Test
-    fun `decode bool value false`() {
-        val holder = cFFIValueHolder {
-            boolValue = false
-        }
-        val result = Serde.decodeValue(holder)
-        assertEquals(false, result)
-    }
+    // Primitive decode tests (null, string, int, float, bool) removed —
+    // already covered by RoundTripTest.
 
     @Test
     fun `decode list value`() {
@@ -426,12 +375,6 @@ class DecodeTest {
         assertEquals("user1@test.com", user1.fields["email"])
     }
 
-    @Test
-    fun `decode value not set`() {
-        val holder = CFFIValueHolder.getDefaultInstance()
-        val result = Serde.decodeValue(holder)
-        assertNull(result)
-    }
 }
 
 // Test types for decode

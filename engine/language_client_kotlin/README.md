@@ -10,7 +10,7 @@ A Kotlin/JVM SDK for calling BAML functions with full type safety. Uses JNA-base
 User Kotlin code
     │ calls generated suspend fun
     ▼
-Generated baml_client/ (hand-written for now)
+Generated baml_client/ (from generators-kotlin)
     │ encodes args → protobuf, calls BamlClient
     ▼
 ┌─────────────────────────────────────────────────┐
@@ -254,9 +254,30 @@ export OPENROUTER_API_KEY=sk-or-v1-...
 
 ## Testing Philosophy
 
-### Unit and codegen tests
+### Unit tests
 
-Unit tests (`com.boundaryml.baml.unit.*`) and codegen tests (`com.boundaryml.baml.codegen.*`) verify the SDK internals in isolation — protobuf encoding/decoding, callback routing, handle lifecycle, and generated-code patterns. They require no dylib or network access.
+Unit tests (`com.boundaryml.baml.unit.*`) verify the SDK internals in isolation — protobuf encoding/decoding, callback routing, handle lifecycle, media types, streaming. They require no dylib or network access. Primitive encode/decode coverage lives in `RoundTripTest` to avoid redundancy.
+
+### Codegen tests — real generated code, not simulations
+
+Codegen tests (`com.boundaryml.baml.codegen.*`) import **real code-generator output** from `codegen/generated/`. These types (`Person`, `Address`, `Sentiment`, `Receipt`, `Union2IntOrString`, etc.) were produced by the Rust `generators-kotlin` crate from a BAML fixture and are checked into the repo.
+
+This is the primary integration point between the Rust codegen and the Kotlin SDK — if a codegen template change produces code that doesn't compile or doesn't encode/decode correctly, these tests catch it.
+
+To regenerate the fixtures after a codegen change:
+
+```bash
+cd engine
+cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
+```
+
+This writes updated `.kt` files to `src/test/kotlin/.../codegen/generated/`. Then verify:
+
+```bash
+cd engine/language_client_kotlin
+./gradlew compileTestKotlin   # Must compile cleanly
+./gradlew cleanTest test --tests "com.boundaryml.baml.codegen.*"  # Must pass
+```
 
 ### Integration tests — SDK plumbing, not LLM output
 
@@ -323,22 +344,23 @@ val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project
 
 | Class | Tests | What it covers |
 |-------|-------|----------------|
-| `EncodeTest` | 22 | Kotlin → protobuf encoding (primitives, collections, classes, enums, function args) |
-| `DecodeTest` | 22 | Protobuf → Kotlin decoding (all 14 CFFIValueHolder variants, type dispatch) |
-| `RoundTripTest` | 15 | Encode then decode for each type (primitives, collections, edge cases) |
+| `EncodeTest` | 17 | Kotlin → protobuf encoding (collections, classes, enums, function args, map keys) |
+| `DecodeTest` | 18 | Protobuf → Kotlin decoding (type dispatch, unions, literals, checked, streaming state) |
+| `RoundTripTest` | 15 | Encode then decode roundtrip for each type (primitives, collections, edge cases) |
 | `CallbackRoutingTest` | 8 | Callback dispatch, streaming, error routing, concurrency, unknown call_id |
 | `HandleTest` | 7 | Handle lifecycle: create, close, clone, double-close, AutoCloseable |
 | `MediaTest` | 13 | Media types: construction, encoding, field correctness, Serde integration |
 | `BamlStreamTest` | 5 | Typed stream: partials collection, final capture, error propagation |
 
-**Codegen tests** (`com.boundaryml.baml.codegen.*`) — no dylib, no API key:
+**Codegen tests** (`com.boundaryml.baml.codegen.*`) — no dylib, no API key.
+These import **real generated types** from `codegen/generated/` (produced by `generators-kotlin`):
 
 | Class | Tests | What it covers |
 |-------|-------|----------------|
-| `GeneratedClassTest` | 6 | Data class encode/decode, nested classes, optional fields |
-| `GeneratedEnumTest` | 5 | Enum encode/decode, unknown variant fallback |
-| `GeneratedUnionTest` | 5 | Sealed class decode, optional unions, dynamic fallback |
-| `GeneratedFunctionTest` | 6 | Function arg encoding, optional params, call options |
+| `GeneratedClassTest` | 6 | Generated data class encode/decode: Person (optional field), Address, Receipt (list field) |
+| `GeneratedEnumTest` | 6 | Generated enum class encode/decode, `fromString()`, unknown variant fallback |
+| `GeneratedUnionTest` | 5 | Generated sealed class decode, optional unions, dynamic fallback |
+| `GeneratedFunctionTest` | 5 | Function arg encoding with generated types, call options |
 
 **Integration tests** (`com.boundaryml.baml.integration.**`) — require dylib + API key:
 
@@ -347,11 +369,11 @@ val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project
 | `RuntimeTest` | 4 | Dylib loading, version, runtime create/destroy |
 | `FunctionCallTest` | 2 | String-returning function calls |
 | `StreamingTest` | 1 | Streaming Flow emission |
-| `ErrorHandlingTest` | 3 | Non-existent function, bad args, runtime errors |
+| `ErrorHandlingTest` | 2 | Non-existent function, bad protobuf args |
 | `ConcurrencyTest` | 1 | 10 concurrent coroutines calling different functions |
 | `StructuredOutputTest` | 4 | Class/enum return types decoded via TypeMap, dynamic fallback |
 
-**Total: 122 unit/codegen + 15 integration = 137 tests**
+**Total: 105 unit/codegen + 14 integration = 119 tests**
 
 ### Running specific tests
 
@@ -406,31 +428,82 @@ The Kotlin code generator lives at `engine/generators/languages/kotlin/`. It con
 
 ### Running codegen tests
 
-All commands run from `engine/` (not `engine/language_client_kotlin/`).
+All `cargo` commands run from `engine/` (not `engine/language_client_kotlin/`).
 
 ```bash
 # Check the generator compiles (fast, ~5s)
 cargo check -p generators-kotlin
 
-# Check the full generators pipeline compiles
-cargo check -p generators-kotlin -p generators-lib
-
-# Run unit tests (IR-to-Kotlin type conversion, class/enum/union serialization)
+# Run Rust-side unit tests (159 tests: type serialization, IR conversion, template rendering)
 cargo test -p generators-kotlin --lib
 ```
+
+### Full codegen validation workflow
+
+After any change to the codegen templates or IR-to-Kotlin conversion, run this sequence to catch all classes of bugs:
+
+```bash
+cd engine
+
+# Step 1: Rust-side tests (type strings, template fragments — fast, ~5s)
+cargo test -p generators-kotlin --lib
+
+# Step 2: Regenerate Kotlin fixture files from the BAML test fixture
+cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
+
+# Step 3: Verify the generated code actually compiles as Kotlin
+cd language_client_kotlin
+./gradlew compileTestKotlin
+
+# Step 4: Verify the generated types encode/decode correctly through the SDK
+./gradlew cleanTest test --tests "com.boundaryml.baml.codegen.*"
+
+# Step 5: Run all unit tests to check nothing is broken
+./gradlew cleanTest test --tests "com.boundaryml.baml.unit.*" --tests "com.boundaryml.baml.codegen.*"
+```
+
+Steps 1-2 are Rust-only. Steps 3-5 require Java 21 + Gradle.
+
+**Why all steps matter:** The Rust tests (Step 1) check string fragments — they verify type names and template snippets are correct, but they don't compile the output. Steps 3-5 compile and run the generated Kotlin, catching bugs like wrong import paths, package qualification errors, interface signature mismatches, and type shadowing that string-based checks miss.
 
 ### Key files
 
 | File | Purpose |
 |------|---------|
 | `engine/generators/languages/kotlin/Cargo.toml` | Crate config |
-| `src/lib.rs` | `LanguageFeatures` implementation, file generation |
-| `src/type.rs` | `TypeKotlin` enum — maps BAML types to Kotlin types |
+| `src/lib.rs` | `LanguageFeatures` implementation, file generation, `write_codegen_fixture` test |
+| `src/type.rs` | `TypeKotlin` enum — maps BAML types to Kotlin types. `variant_class_name()` avoids Kotlin keyword shadowing in sealed classes. |
 | `src/generated_types.rs` | Askama template structs for classes, enums, unions |
-| `src/functions.rs` | Function wrapper template structs |
+| `src/functions.rs` | Function wrapper + type map template structs |
 | `src/ir_to_kotlin/` | IR-to-Kotlin conversion (classes, enums, functions, unions, type_aliases) |
-| `src/_templates/*.kt.j2` | Jinja2 templates for generated Kotlin code |
-| `src/package.rs` | Package-aware type resolution |
+| `src/_templates/*.kt.j2` | Askama templates for generated Kotlin code |
+| `src/package.rs` | Package-aware type resolution — `relative_from()` produces fully-qualified cross-package references |
+| `src/test_macros.rs` | `test_kt_type!` macro, auto-generated type tests from `type_serialization_tests.md` |
+
+### Generated fixture files
+
+The `codegen/generated/` directory in the Kotlin test sources contains real codegen output checked into git:
+
+```
+src/test/kotlin/.../codegen/
+├── GeneratedClassTest.kt        # Tests that import real generated types
+├── GeneratedEnumTest.kt
+├── GeneratedUnionTest.kt
+├── GeneratedFunctionTest.kt
+└── generated/                   # Output of generators-kotlin
+    ├── BamlTypeMap.kt           # registerBamlTypes() function
+    ├── types/
+    │   ├── Classes.kt           # Person, Address, Receipt, SearchResult
+    │   ├── Enums.kt             # Sentiment
+    │   ├── Unions.kt            # Union2IntOrString (sealed class)
+    │   └── TypeAliases.kt
+    └── stream_types/
+        ├── Classes.kt           # Streaming variants (all fields nullable)
+        ├── Unions.kt
+        └── TypeAliases.kt
+```
+
+These files are generated from a BAML fixture defined in `src/lib.rs::write_codegen_fixture`. The fixture covers: classes with required/optional/list fields, enums, union types, and nested class references.
 
 ### Registration points
 

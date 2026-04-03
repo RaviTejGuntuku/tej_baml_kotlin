@@ -24,7 +24,7 @@ pub fn ir_union_to_kotlin<'a>(
                     .map(|t| {
                         let kotlin_type = crate::ir_to_kotlin::type_to_kotlin(t, pkg.lookup());
                         crate::generated_types::VariantKotlin {
-                            name: kotlin_type.default_name_within_union(),
+                            name: kotlin_type.variant_class_name(),
                             cffi_name: t.to_union_name(false),
                             literal_repr: match t {
                                 TypeGeneric::Literal(l, ..) => match l {
@@ -88,7 +88,7 @@ pub fn ir_union_to_kotlin_stream<'a>(
                         let kotlin_type =
                             crate::ir_to_kotlin::stream_type_to_kotlin(t, pkg.lookup());
                         crate::generated_types::VariantKotlin {
-                            name: kotlin_type.default_name_within_union(),
+                            name: kotlin_type.variant_class_name(),
                             cffi_name: t.to_union_name(false),
                             literal_repr: match t {
                                 TypeGeneric::Literal(l, ..) => match l {

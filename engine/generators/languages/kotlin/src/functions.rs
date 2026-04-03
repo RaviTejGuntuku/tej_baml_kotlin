@@ -120,23 +120,21 @@ struct FunctionStreamTemplate<'a> {
 /// package baml_client
 ///
 /// import com.boundaryml.baml.*
-/// import baml_client.types.*
-/// import baml_client.stream_types.*
 /// import kotlin.reflect.KClass
 ///
 /// fun registerBamlTypes(typeMap: BamlTypeMap) {
 /// {% for class in classes -%}
-///     typeMap.register("TYPES.{{ class.name }}", {{ class.name }}::class)
-///     typeMap.register("STREAM_TYPES.{{ class.name }}", stream_types.{{ class.name }}::class)
+///     typeMap.register("TYPES", "{{ class.name }}", baml_client.types.{{ class.name }}::class, baml_client.types.{{ class.name }})
+///     typeMap.register("STREAM_TYPES", "{{ class.name }}", baml_client.stream_types.{{ class.name }}::class, baml_client.stream_types.{{ class.name }})
 /// {% endfor %}
 /// {% for enum_ in enums -%}
-///     typeMap.register("TYPES.{{ enum_.name }}", {{ enum_.name }}::class)
+///     typeMap.register("TYPES", "{{ enum_.name }}", baml_client.types.{{ enum_.name }}::class)
 /// {% endfor %}
 /// {% for union_ in unions -%}
-///     typeMap.register("TYPES.{{ union_.cffi_name }}", {{ union_.name }}::class)
+///     typeMap.register("TYPES", "{{ union_.cffi_name }}", baml_client.types.{{ union_.name }}::class, baml_client.types.{{ union_.name }})
 /// {% endfor %}
 /// {% for union_ in stream_unions -%}
-///     typeMap.register("STREAM_TYPES.{{ union_.cffi_name }}", stream_types.{{ union_.name }}::class)
+///     typeMap.register("STREAM_TYPES", "{{ union_.cffi_name }}", baml_client.stream_types.{{ union_.name }}::class, baml_client.stream_types.{{ union_.name }})
 /// {% endfor %}
 /// }
 /// ```

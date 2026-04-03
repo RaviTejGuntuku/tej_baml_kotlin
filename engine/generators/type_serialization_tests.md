@@ -202,7 +202,7 @@ class T { f image }
 ### Kotlin
 
 - Non-streaming: `Image`
-- Streaming: `types.Image?`
+- Streaming: `baml_client.types.Image?`
 
 ---
 
@@ -237,7 +237,7 @@ class T { f image? }
 ### Kotlin
 
 - Non-streaming: `Image?`
-- Streaming: `types.Image?`
+- Streaming: `baml_client.types.Image?`
 
 ---
 
@@ -272,7 +272,7 @@ class T { f audio }
 ### Kotlin
 
 - Non-streaming: `Audio`
-- Streaming: `types.Audio?`
+- Streaming: `baml_client.types.Audio?`
 
 ---
 
@@ -307,7 +307,7 @@ class T { f audio? }
 ### Kotlin
 
 - Non-streaming: `Audio?`
-- Streaming: `types.Audio?`
+- Streaming: `baml_client.types.Audio?`
 
 ---
 
@@ -840,7 +840,7 @@ class T { f int | string }
 ### Kotlin
 
 - Non-streaming: `Union2IntOrString`
-- Streaming: `types.Union2IntOrString?`
+- Streaming: `baml_client.types.Union2IntOrString?`
 
 ---
 
@@ -875,7 +875,7 @@ class T { f int | string | bool }
 ### Kotlin
 
 - Non-streaming: `Union3BoolOrIntOrString`
-- Streaming: `types.Union3BoolOrIntOrString?`
+- Streaming: `baml_client.types.Union3BoolOrIntOrString?`
 
 ---
 
@@ -910,7 +910,7 @@ class T { f (int | string)? }
 ### Kotlin
 
 - Non-streaming: `Union2IntOrString?`
-- Streaming: `types.Union2IntOrString?`
+- Streaming: `baml_client.types.Union2IntOrString?`
 
 ---
 
@@ -1063,7 +1063,7 @@ class T { status Status }
 ### Kotlin
 
 - Non-streaming: `Status`
-- Streaming: `types.Status?`
+- Streaming: `baml_client.types.Status?`
 
 ---
 
@@ -1102,7 +1102,7 @@ class T { status Status? }
 ### Kotlin
 
 - Non-streaming: `Status?`
-- Streaming: `types.Status?`
+- Streaming: `baml_client.types.Status?`
 
 ---
 
@@ -1385,7 +1385,7 @@ class T { inner Inner @stream.done }
 ### Kotlin
 
 - Non-streaming: `Inner`
-- Streaming: `types.Inner?`
+- Streaming: `baml_client.types.Inner?`
 
 ---
 
@@ -1421,7 +1421,7 @@ class T { inner Inner @stream.done @stream.with_state }
 ### Kotlin
 
 - Non-streaming: `Inner`
-- Streaming: `StreamState<types.Inner?>`
+- Streaming: `StreamState<baml_client.types.Inner?>`
 
 ---
 
@@ -1457,7 +1457,7 @@ class T { items (Inner @stream.done)[] }
 ### Kotlin
 
 - Non-streaming: `List<Inner>`
-- Streaming: `List<types.Inner>`
+- Streaming: `List<baml_client.types.Inner>`
 
 ---
 
@@ -1493,7 +1493,7 @@ class T { items Inner[] @stream.done }
 ### Kotlin
 
 - Non-streaming: `List<Inner>`
-- Streaming: `List<types.Inner>`
+- Streaming: `List<baml_client.types.Inner>`
 
 ---
 
@@ -1529,7 +1529,7 @@ class T { matrix Inner[][][] @stream.done }
 ### Kotlin
 
 - Non-streaming: `List<List<List<Inner>>>`
-- Streaming: `List<List<List<types.Inner>>>`
+- Streaming: `List<List<List<baml_client.types.Inner>>>`
 
 ---
 
@@ -1565,7 +1565,7 @@ class T { lookup map<string, Inner> @stream.done }
 ### Kotlin
 
 - Non-streaming: `Map<String, Inner>`
-- Streaming: `Map<String, types.Inner>`
+- Streaming: `Map<String, baml_client.types.Inner>`
 
 ---
 
@@ -1603,7 +1603,7 @@ class T { f int @stream.done | string }
 ### Kotlin
 
 - Non-streaming: `Union2IntOrString`
-- Streaming: `types.Union2IntOrString?`
+- Streaming: `baml_client.types.Union2IntOrString?`
 
 ---
 
@@ -1711,7 +1711,7 @@ class T { f (int | string) @stream.not_null }
 ### Kotlin
 
 - Non-streaming: `Union2IntOrString`
-- Streaming: `types.Union2IntOrString`
+- Streaming: `baml_client.types.Union2IntOrString`
 
 ---
 
@@ -1746,7 +1746,7 @@ class T { f (int | string) @stream.with_state }
 ### Kotlin
 
 - Non-streaming: `Union2IntOrString`
-- Streaming: `StreamState<types.Union2IntOrString?>`
+- Streaming: `StreamState<baml_client.types.Union2IntOrString?>`
 
 ---
 
@@ -1787,7 +1787,7 @@ typing.Optional[types.Checked[int, typing_extensions.Literal['valid_age']]]
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `types.Checked<Long>?`
+- Streaming: `baml_client.types.Checked<Long>?`
 
 ---
 
@@ -1822,7 +1822,7 @@ class T { age int? @check(valid_age, {{ this >= 0 }}) }
 ### Kotlin
 
 - Non-streaming: `Checked<Long?>`
-- Streaming: `types.Checked<Long?>`
+- Streaming: `baml_client.types.Checked<Long?>`
 
 ---
 
@@ -1866,7 +1866,7 @@ types.Checked[typing.Optional[int], typing_extensions.Literal['valid']]
 ### Kotlin
 
 - Non-streaming: `Checked<Long?>`
-- Streaming: `types.Checked<Long?>`
+- Streaming: `baml_client.types.Checked<Long?>`
 
 ---
 
@@ -1901,7 +1901,7 @@ class T { age int @check(valid_age, {{ this >= 0 }}) @stream.not_null }
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `types.Checked<Long>`
+- Streaming: `baml_client.types.Checked<Long>`
 
 ---
 
@@ -1940,7 +1940,7 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['valid_
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `StreamState<types.Checked<Long>?>`
+- Streaming: `StreamState<baml_client.types.Checked<Long>?>`
 
 ---
 
@@ -1979,7 +1979,7 @@ typing.Optional[types.Checked[int, typing_extensions.Literal['positive', 'small'
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `types.Checked<Long>?`
+- Streaming: `baml_client.types.Checked<Long>?`
 
 ---
 
@@ -3481,7 +3481,7 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `StreamState<types.Checked<Long>?>`
+- Streaming: `StreamState<baml_client.types.Checked<Long>?>`
 
 ---
 
@@ -3520,7 +3520,7 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `StreamState<types.Checked<Long>?>`
+- Streaming: `StreamState<baml_client.types.Checked<Long>?>`
 
 ---
 
@@ -3559,7 +3559,7 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `StreamState<types.Checked<Long>?>`
+- Streaming: `StreamState<baml_client.types.Checked<Long>?>`
 
 ---
 
@@ -3598,7 +3598,7 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 ### Kotlin
 
 - Non-streaming: `Checked<Long>`
-- Streaming: `StreamState<types.Checked<Long>?>`
+- Streaming: `StreamState<baml_client.types.Checked<Long>?>`
 
 ---
 
@@ -3792,7 +3792,7 @@ class Task {
 ### Kotlin
 
 - Non-streaming: `Priority`
-- Streaming: `types.Priority?`
+- Streaming: `baml_client.types.Priority?`
 
 ---
 
@@ -4010,7 +4010,7 @@ class T { f Inner }
 ### Kotlin
 
 - Non-streaming: `Inner`
-- Streaming: `types.Inner?`
+- Streaming: `baml_client.types.Inner?`
 
 ---
 
@@ -4049,7 +4049,7 @@ class T { list Inner[] }
 ### Kotlin
 
 - Non-streaming: `List<Inner>`
-- Streaming: `List<types.Inner>`
+- Streaming: `List<baml_client.types.Inner>`
 
 ---
 
@@ -4137,7 +4137,7 @@ class T {
 ### Kotlin
 
 - Non-streaming: `Inner`
-- Streaming: `types.Inner?`
+- Streaming: `baml_client.types.Inner?`
 
 ---
 
