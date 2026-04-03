@@ -2,12 +2,11 @@
 {{ crate::utils::prefix_lines(doc, "    /// ") }}
 {%- endif %}
     fun {{ fn.name }}Stream({% for (name, kt_type) in fn.args -%}
-        {{ name }}: {{ kt_type.serialize_type(pkg) }}{% if !loop.last %}, {% endif %}
-        {%- endfor %}): Flow<BamlResult> {
+        {{ name }}: {{ kt_type.serialize_type(pkg) }}, {% endfor %}options: CallOptions? = null): Flow<BamlResult> {
         val args = Serde.encodeArgs(mapOf(
             {% for (name, kt_type) in fn.args -%}
             "{{ name }}" to {{ name }}{% if !loop.last %},{% endif %}
             {%- endfor %}
-        ))
+        ), options)
         return client.streamFunction("{{ fn.name }}", args)
     }

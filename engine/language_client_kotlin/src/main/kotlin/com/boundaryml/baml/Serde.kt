@@ -119,6 +119,11 @@ object Serde {
                     encodeMapEntry(k, v)
                 })
             }
+            if (options?.client != null) {
+                this.clientRegistry = hostClientRegistry {
+                    this.primary = options.client
+                }
+            }
         }
         return args.toByteArray()
     }

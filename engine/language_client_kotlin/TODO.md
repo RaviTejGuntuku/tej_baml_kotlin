@@ -10,11 +10,11 @@
 | Typed BamlStream | ✅ DONE | 5 tests |
 | Integration tests | ✅ DONE | 14 tests |
 | Test cleanup | ✅ DONE | 105 unit/codegen total |
-| Client override in CallOptions | 🔶 PARTIAL | — |
-| call_function_parse | 🔶 PARTIAL | — |
+| Client override in CallOptions | ✅ DONE | 1 test |
+| call_function_parse | ✅ DONE | — |
 | Maven Central publishing | ⬜ TODO | — |
 | Native dylib bundling | ⬜ TODO | — |
-| CLI integration | ⬜ TODO | — |
+| CLI integration | ✅ DONE (verified) | — |
 | Collector/logging | ⬜ TODO | — |
 | TypeBuilder | ⬜ TODO | — |
 
@@ -41,7 +41,7 @@ NEED RESEARCH FIRST (JNA FFI surface):
 
 ## Task A: Client override in CallOptions
 
-**Status:** 🔶 PARTIAL
+**Status:** ✅ DONE
 **Priority:** Medium
 **Files touched:** `Serde.kt`, `function.kt.j2`, `function.stream.kt.j2`, `EncodeTest.kt`
 **No overlap with:** Tasks B–G
@@ -65,7 +65,7 @@ NEED RESEARCH FIRST (JNA FFI surface):
 
 ## Task B: call_function_parse (parse mode)
 
-**Status:** 🔶 PARTIAL
+**Status:** ✅ DONE
 **Priority:** Medium
 **Files touched:** new codegen template, new test files
 **No overlap with:** Tasks A, C–G
@@ -90,7 +90,7 @@ NEED RESEARCH FIRST (JNA FFI surface):
 
 ## Task C: CLI integration (end-to-end verification)
 
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (verified — codegen pipeline works, no E2E test script added)
 **Priority:** Low
 **Files touched:** none (read-only verification), possibly new test script
 **No overlap with:** Tasks A, B, D–G

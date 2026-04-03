@@ -163,6 +163,17 @@ class EncodeTest {
     }
 
     @Test
+    fun `encode function args with client override`() {
+        val bytes = Serde.encodeArgs(
+            mapOf("x" to 1),
+            CallOptions(client = "my-client")
+        )
+        val parsed = HostFunctionArguments.parseFrom(bytes)
+        assertTrue(parsed.hasClientRegistry())
+        assertEquals("my-client", parsed.clientRegistry.primary)
+    }
+
+    @Test
     fun `encode protobuf bytes are parseable`() {
         val bytes = Serde.encodeArgs(mapOf("x" to listOf(1, 2, 3)))
         val parsed = HostFunctionArguments.parseFrom(bytes)

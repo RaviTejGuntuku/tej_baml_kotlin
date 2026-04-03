@@ -1,0 +1,13 @@
+{% if let Some(doc) = fn.documentation -%}
+{{ crate::utils::prefix_lines(doc, "    /// ") }}
+{%- endif %}
+    /// Parse version of {{ fn.name }} — takes raw LLM text and returns typed result.
+    suspend fun {{ fn.name }}(text: String, options: CallOptions? = null): {{ fn.return_type.serialize_type(pkg) }} {
+        val args = Serde.encodeArgs(mapOf(
+            "text" to text,
+            "stream" to false
+        ), options)
+        val result = client.callFunctionParse("{{ fn.name }}", args)
+        @Suppress("UNCHECKED_CAST")
+        return result as {{ fn.return_type.serialize_type(pkg) }}
+    }

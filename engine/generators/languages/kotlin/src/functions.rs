@@ -114,6 +114,54 @@ struct FunctionStreamTemplate<'a> {
     pkg: &'a CurrentRenderPackage,
 }
 
+fn render_function_parse(
+    function: &FunctionKotlin,
+    pkg: &CurrentRenderPackage,
+) -> Result<String, askama::Error> {
+    FunctionParseTemplate {
+        r#fn: function,
+        pkg,
+    }
+    .render()
+}
+
+/// Parse functions file for Kotlin.
+///
+/// ```askama
+/// package baml_client
+///
+/// import com.boundaryml.baml.*
+/// import baml_client.types.*
+///
+/// object BamlParseFunctions {
+///
+/// {% for function in functions %}
+/// {{ crate::functions::render_function_parse(function, pkg)? }}
+/// {% endfor %}
+///
+/// }
+/// ```
+#[derive(askama::Template)]
+#[template(in_doc = true, ext = "txt", escape = "none")]
+struct ParseFunctionsTemplate<'a> {
+    functions: &'a [FunctionKotlin],
+    pkg: &'a CurrentRenderPackage,
+}
+
+pub fn render_functions_parse(
+    functions: &[FunctionKotlin],
+    pkg: &CurrentRenderPackage,
+) -> Result<String, askama::Error> {
+    ParseFunctionsTemplate { functions, pkg }.render()
+}
+
+#[derive(askama::Template)]
+#[template(path = "function.parse.kt.j2", escape = "none")]
+struct FunctionParseTemplate<'a> {
+    r#fn: &'a FunctionKotlin,
+    pkg: &'a CurrentRenderPackage,
+}
+
 /// Type map for Kotlin — maps BAML type names to Kotlin KClass instances.
 ///
 /// ```askama

@@ -1,6 +1,6 @@
 use baml_types::ir_type::TypeGeneric;
 use dir_writer::{FileCollector, GeneratorArgs, IntermediateRepr, LanguageFeatures};
-use functions::{render_functions, render_functions_stream, render_runtime_code, render_source_files, render_type_map};
+use functions::{render_functions, render_functions_parse, render_functions_stream, render_runtime_code, render_source_files, render_type_map};
 use generated_types::{render_kotlin_stream_types, render_kotlin_types};
 use internal_baml_core::ir::TypeValue;
 
@@ -57,6 +57,10 @@ impl LanguageFeatures for KotlinLanguageFeatures {
         collector.add_file(
             "BamlStreamFunctions.kt",
             render_functions_stream(&functions, &pkg)?,
+        )?;
+        collector.add_file(
+            "BamlParseFunctions.kt",
+            render_functions_parse(&functions, &pkg)?,
         )?;
 
         // Classes
@@ -223,7 +227,7 @@ mod render_tests {
     use internal_baml_core::ir::repr::make_test_ir;
 
     use crate::{
-        functions::{render_functions, render_functions_stream, render_type_map},
+        functions::{render_functions, render_functions_parse, render_functions_stream, render_type_map},
         generated_types::{render_kotlin_stream_types, render_kotlin_types},
         ir_to_kotlin::{classes, enums, functions as fn_conv, type_aliases, unions},
         package::CurrentRenderPackage,
@@ -250,6 +254,10 @@ mod render_tests {
         files.push((
             "BamlStreamFunctions.kt".to_string(),
             render_functions_stream(&functions, &pkg).unwrap(),
+        ));
+        files.push((
+            "BamlParseFunctions.kt".to_string(),
+            render_functions_parse(&functions, &pkg).unwrap(),
         ));
 
         // Classes
@@ -824,7 +832,7 @@ mod render_tests {
 
         // Skip function files — they reference a `client` that requires a runtime context.
         // We only need types/enums/unions for codegen compilation tests.
-        let skip = ["BamlFunctions.kt", "BamlStreamFunctions.kt"];
+        let skip = ["BamlFunctions.kt", "BamlStreamFunctions.kt", "BamlParseFunctions.kt"];
         for (name, content) in &files {
             if skip.iter().any(|s| name.ends_with(s)) {
                 continue;
@@ -861,6 +869,7 @@ mod render_tests {
         let expected = vec![
             "BamlFunctions.kt",
             "BamlStreamFunctions.kt",
+            "BamlParseFunctions.kt",
             "BamlTypeMap.kt",
             "types/Classes.kt",
             "types/Enums.kt",

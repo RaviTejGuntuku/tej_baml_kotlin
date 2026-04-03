@@ -2,13 +2,12 @@
 {{ crate::utils::prefix_lines(doc, "    /// ") }}
 {%- endif %}
     suspend fun {{ fn.name }}({% for (name, kt_type) in fn.args -%}
-        {{ name }}: {{ kt_type.serialize_type(pkg) }}{% if !loop.last %}, {% endif %}
-        {%- endfor %}): {{ fn.return_type.serialize_type(pkg) }} {
+        {{ name }}: {{ kt_type.serialize_type(pkg) }}, {% endfor %}options: CallOptions? = null): {{ fn.return_type.serialize_type(pkg) }} {
         val args = Serde.encodeArgs(mapOf(
             {% for (name, kt_type) in fn.args -%}
             "{{ name }}" to {{ name }}{% if !loop.last %},{% endif %}
             {%- endfor %}
-        ))
+        ), options)
         val result = client.callFunction("{{ fn.name }}", args)
         @Suppress("UNCHECKED_CAST")
         return result as {{ fn.return_type.serialize_type(pkg) }}
