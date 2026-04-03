@@ -220,15 +220,13 @@ mod tests {
 
 #[cfg(test)]
 mod render_tests {
-    use askama::Template;
-    use internal_baml_core::ir::{repr::make_test_ir, IRHelper};
+    use internal_baml_core::ir::repr::make_test_ir;
 
     use crate::{
         functions::{render_functions, render_functions_stream, render_type_map},
         generated_types::{render_kotlin_stream_types, render_kotlin_types},
-        ir_to_kotlin::{self, classes, enums, functions as fn_conv, type_aliases, unions},
+        ir_to_kotlin::{classes, enums, functions as fn_conv, type_aliases, unions},
         package::CurrentRenderPackage,
-        r#type::SerializeType,
     };
 
     /// Helper: build IR, convert to Kotlin types, render templates, return all generated files.
