@@ -3,6 +3,7 @@ import com.google.protobuf.gradle.*
 plugins {
     kotlin("jvm") version "1.9.22"
     id("com.google.protobuf") version "0.9.4"
+    `maven-publish`
 }
 
 // Load .env file if it exists (KEY=VALUE format, one per line)
@@ -113,6 +114,70 @@ sourceSets {
     main {
         proto {
             srcDir("proto")
+        }
+        // Bundle native libraries into the JAR
+        resources {
+            srcDir("native-libs")
+        }
+    }
+}
+
+// Copy native libraries into the resource directory structure that JNA expects.
+// JNA looks for: /com/sun/jna/{platform}/libname.so|dylib|dll
+// We use a simpler layout: /native/{platform}/libbridge_cffi.so|dylib
+val copyNativeLibs by tasks.registering(Copy::class) {
+    group = "build"
+    description = "Copy native bridge_cffi libraries for bundling in JAR"
+
+    val bamlLangTarget = file("../../baml_language/target")
+
+    // macOS arm64 (Apple Silicon)
+    from(bamlLangTarget.resolve("release/libbridge_cffi.dylib")) {
+        into("native/darwin-aarch64")
+    }
+    // Android arm64
+    from(bamlLangTarget.resolve("aarch64-linux-android/release/libbridge_cffi.so")) {
+        into("native/android-arm64")
+    }
+    // Android x86_64 (emulator)
+    from(bamlLangTarget.resolve("x86_64-linux-android/release/libbridge_cffi.so")) {
+        into("native/android-x86_64")
+    }
+
+    into(layout.buildDirectory.dir("native-libs"))
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+tasks.named("processResources") {
+    dependsOn(copyNativeLibs)
+}
+
+// Also include the copied native libs as resources
+sourceSets.main {
+    resources.srcDir(layout.buildDirectory.dir("native-libs"))
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+
+            groupId = "com.boundaryml"
+            artifactId = "baml-kotlin"
+            version = project.version.toString()
+
+            pom {
+                name.set("BAML Kotlin SDK")
+                description.set("Kotlin/JVM SDK for calling BAML functions with full type safety")
+                url.set("https://github.com/BoundaryML/baml")
+
+                licenses {
+                    license {
+                        name.set("Apache-2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                    }
+                }
+            }
         }
     }
 }

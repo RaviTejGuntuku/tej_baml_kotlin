@@ -111,8 +111,14 @@ object BamlFfi {
         val lib = if (libPath != null) {
             Native.load(libPath, BamlFfiLib::class.java) as BamlFfiLib
         } else {
-            val libName = platformLibraryName()
-            Native.load(libName, BamlFfiLib::class.java) as BamlFfiLib
+            // Try extracting from JAR-bundled native libraries
+            val extracted = extractBundledLibrary()
+            if (extracted != null) {
+                Native.load(extracted, BamlFfiLib::class.java) as BamlFfiLib
+            } else {
+                val libName = platformLibraryName()
+                Native.load(libName, BamlFfiLib::class.java) as BamlFfiLib
+            }
         }
 
         instance = lib
@@ -120,17 +126,55 @@ object BamlFfi {
     }
 
     /**
-     * Returns the platform-specific library name for bridge_cffi.
+     * Try to extract the native library from the JAR's bundled resources.
+     * Returns the absolute path to the extracted file, or null if not bundled.
      */
-    private fun platformLibraryName(): String {
-        val os = System.getProperty("os.name")?.lowercase() ?: ""
-        return when {
-            os.contains("mac") || os.contains("darwin") -> "baml_cffi"
-            os.contains("win") -> "baml_cffi"
-            os.contains("linux") -> "baml_cffi"
-            else -> "baml_cffi"
+    private fun extractBundledLibrary(): String? {
+        val (resourcePath, fileName) = nativeResourcePath() ?: return null
+        val stream = BamlFfi::class.java.getResourceAsStream(resourcePath) ?: return null
+
+        return try {
+            val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "baml-native")
+            tmpDir.mkdirs()
+            val tmpFile = java.io.File(tmpDir, fileName)
+            // Re-extract if missing or size changed
+            if (!tmpFile.exists() || tmpFile.length() == 0L) {
+                stream.use { input ->
+                    tmpFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                tmpFile.setExecutable(true)
+            }
+            tmpFile.absolutePath
+        } catch (_: Throwable) {
+            null
         }
     }
+
+    /**
+     * Returns (resource path, file name) for the current platform's bundled native library.
+     */
+    private fun nativeResourcePath(): Pair<String, String>? {
+        val os = System.getProperty("os.name")?.lowercase() ?: ""
+        val arch = System.getProperty("os.arch")?.lowercase() ?: ""
+        return when {
+            os.contains("mac") && arch.contains("aarch64") ->
+                "/native/darwin-aarch64/libbridge_cffi.dylib" to "libbridge_cffi.dylib"
+            os.contains("mac") && arch.contains("x86_64") ->
+                "/native/darwin-x86_64/libbridge_cffi.dylib" to "libbridge_cffi.dylib"
+            os.contains("linux") && arch.contains("aarch64") ->
+                "/native/android-arm64/libbridge_cffi.so" to "libbridge_cffi.so"
+            os.contains("linux") && arch.contains("amd64") ->
+                "/native/android-x86_64/libbridge_cffi.so" to "libbridge_cffi.so"
+            else -> null
+        }
+    }
+
+    /**
+     * Returns the platform-specific library name for bridge_cffi.
+     */
+    private fun platformLibraryName(): String = "baml_cffi"
 
     /**
      * Free a buffer returned by an FFI call.

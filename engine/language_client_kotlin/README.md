@@ -509,6 +509,88 @@ This script creates a temporary BAML project, runs `baml-cli generate` with `out
 - Type map uses separate `(namespace, name)` args
 - Import path is `com.boundaryml.baml.cffi.HostValue` (no `v1`)
 
+## Native Library Cross-Compilation & Maven Publishing
+
+### Building native libraries
+
+The SDK bundles platform-specific native libraries (`bridge_cffi`) inside the JAR. To build for all supported targets:
+
+```bash
+# Prerequisites (one-time):
+#   Android NDK: ~/Library/Android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973"
+#   Rust targets: rustup target add aarch64-linux-android x86_64-linux-android
+
+# macOS arm64 (already built if you ran integration tests)
+cd baml_language
+cargo build -p bridge_cffi --release
+
+# Android arm64 (phones + ARM emulators)
+export NDK=$HOME/Library/Android/sdk/ndk/27.0.12077973
+export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/darwin-x86_64
+CC_aarch64_linux_android=$TOOLCHAIN/bin/aarch64-linux-android24-clang \
+AR_aarch64_linux_android=$TOOLCHAIN/bin/llvm-ar \
+CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$TOOLCHAIN/bin/aarch64-linux-android24-clang \
+cargo build -p bridge_cffi --release --target aarch64-linux-android
+
+# Android x86_64 (emulators on Intel/AMD hosts)
+CC_x86_64_linux_android=$TOOLCHAIN/bin/x86_64-linux-android24-clang \
+AR_x86_64_linux_android=$TOOLCHAIN/bin/llvm-ar \
+CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER=$TOOLCHAIN/bin/x86_64-linux-android24-clang \
+cargo build -p bridge_cffi --release --target x86_64-linux-android
+```
+
+### Publishing to mavenLocal
+
+```bash
+cd engine/language_client_kotlin
+./gradlew publishToMavenLocal
+```
+
+### Verifying the published artifact
+
+```bash
+# Check the JAR exists in local Maven repo
+ls ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.jar
+
+# Verify native libraries are bundled inside the JAR
+jar tf ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.jar | grep native
+# Expected:
+#   native/darwin-aarch64/libbridge_cffi.dylib
+#   native/android-arm64/libbridge_cffi.so
+#   native/android-x86_64/libbridge_cffi.so
+```
+
+### Using the SDK from another project
+
+Add to your `build.gradle.kts`:
+
+```kotlin
+repositories {
+    mavenLocal()  // For local development
+    mavenCentral()
+}
+
+dependencies {
+    implementation("com.boundaryml:baml-kotlin:0.1.0-SNAPSHOT")
+}
+```
+
+For Android projects, also copy the `.so` files to `jniLibs/`:
+
+```kotlin
+// In your app's build.gradle.kts
+android {
+    sourceSets["main"].jniLibs.srcDirs("src/main/jniLibs")
+}
+```
+
+Then place the `.so` files:
+```
+app/src/main/jniLibs/
+├── arm64-v8a/libbridge_cffi.so    (from baml_language/target/aarch64-linux-android/release/)
+└── x86_64/libbridge_cffi.so       (from baml_language/target/x86_64-linux-android/release/)
+```
+
 ### Key files
 
 | File | Purpose |
