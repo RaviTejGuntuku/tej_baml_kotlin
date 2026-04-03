@@ -81,7 +81,7 @@ Declares the JNA interface to the Rust `bridge_cffi` dynamic library.
 - **`BamlDeserializable<T>`** — Interface for companion objects that can decode from a field map back to a typed Kotlin object.
 - **`BamlResult`** — Wrapper delivered through callback channels. Contains `data` (final result), `streamData` (partial), `error`, and boolean flags.
 - **`BamlException`** / **`BamlClientError`** — Exception hierarchy for BAML errors.
-- **`CallOptions`** — Optional overrides for function calls (client name, env vars, tags).
+- **`CallOptions`** — Optional overrides for function calls: `client` (routes to a specific LLM client), `env` (extra env vars), `tags` (metadata). All three are serialized to `HostFunctionArguments` proto. Generated functions accept `options: CallOptions? = null` as last parameter.
 - **`StreamState<T>`** — Sealed class with `Pending`, `Started(value)`, `Done(value)` variants for streaming.
 - **`Checked<T>`** — Value with associated constraint check results (`CheckResult`).
 
@@ -164,7 +164,7 @@ Declares the JNA interface to the Rust `bridge_cffi` dynamic library.
     4. Partials have `hasStreamData=true`, final result has `hasData=true`.
     5. Flow cancellation triggers `cancel_function_call`.
 
-  - **`suspend fun callFunctionParse(name, args): Any?`** — Same pattern as `callFunction`, for parse-mode calls.
+  - **`suspend fun callFunctionParse(name, args): Any?`** — Same pattern as `callFunction`, for parse-mode calls. Generated wrappers in `BamlParseFunctions.kt` take `(text: String, options: CallOptions?)` and call this.
 
 #### `BamlStream.kt` — Typed Stream Wrapper
 
@@ -344,7 +344,7 @@ val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project
 
 | Class | Tests | What it covers |
 |-------|-------|----------------|
-| `EncodeTest` | 17 | Kotlin → protobuf encoding (collections, classes, enums, function args, map keys) |
+| `EncodeTest` | 18 | Kotlin → protobuf encoding (collections, classes, enums, function args, map keys, client override) |
 | `DecodeTest` | 18 | Protobuf → Kotlin decoding (type dispatch, unions, literals, checked, streaming state) |
 | `RoundTripTest` | 15 | Encode then decode roundtrip for each type (primitives, collections, edge cases) |
 | `CallbackRoutingTest` | 8 | Callback dispatch, streaming, error routing, concurrency, unknown call_id |
@@ -373,7 +373,7 @@ These import **real generated types** from `codegen/generated/` (produced by `ge
 | `ConcurrencyTest` | 1 | 10 concurrent coroutines calling different functions |
 | `StructuredOutputTest` | 4 | Class/enum return types decoded via TypeMap, dynamic fallback |
 
-**Total: 105 unit/codegen + 14 integration = 119 tests**
+**Total: 106 unit/codegen + 14 integration = 120 tests**
 
 ### Running specific tests
 
@@ -421,6 +421,7 @@ The Kotlin code generator lives at `engine/generators/languages/kotlin/`. It con
                                     ├── stream_types/...     (streaming variants)
                                     ├── BamlFunctions.kt     (suspend fun wrappers)
                                     ├── BamlStreamFunctions.kt (Flow wrappers)
+                                    ├── BamlParseFunctions.kt  (parse mode wrappers)
                                     ├── BamlTypeMap.kt       (type registry)
                                     ├── BamlSourceMap.kt     (embedded .baml sources)
                                     └── BamlRuntimeInit.kt   (runtime bootstrap)
@@ -515,7 +516,7 @@ cargo build -p baml-cli
 | `src/generated_types.rs` | Askama template structs for classes, enums, unions |
 | `src/functions.rs` | Function wrapper + type map template structs |
 | `src/ir_to_kotlin/` | IR-to-Kotlin conversion (classes, enums, functions, unions, type_aliases) |
-| `src/_templates/*.kt.j2` | Askama templates for generated Kotlin code |
+| `src/_templates/*.kt.j2` | Askama templates: class, enums, unions, function, function.stream, function.parse |
 | `src/package.rs` | Package-aware type resolution — `relative_from()` produces fully-qualified cross-package references |
 | `src/test_macros.rs` | `test_kt_type!` macro, auto-generated type tests from `type_serialization_tests.md` |
 
