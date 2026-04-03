@@ -443,11 +443,13 @@ mod render_tests {
         let funcs = get_file(&files, "BamlFunctions.kt");
         assert!(funcs.contains("suspend fun GetGreeting("), "Missing function: {}", funcs);
         assert!(funcs.contains("name: String"), "Missing arg");
+        assert!(funcs.contains("options: CallOptions? = null"), "Missing CallOptions param: {}", funcs);
         assert!(funcs.contains("): String"), "Missing return type");
         assert!(
             funcs.contains("client.callFunction(\"GetGreeting\""),
             "Missing callFunction"
         );
+        assert!(funcs.contains(", options)"), "Should pass options to encodeArgs: {}", funcs);
     }
 
     #[test]
@@ -463,10 +465,55 @@ mod render_tests {
 
         let funcs = get_file(&files, "BamlStreamFunctions.kt");
         assert!(funcs.contains("fun GetGreetingStream("), "Missing stream function: {}", funcs);
+        assert!(funcs.contains("options: CallOptions? = null"), "Missing CallOptions param: {}", funcs);
         assert!(funcs.contains("Flow<BamlResult>"), "Missing Flow return type");
         assert!(
             funcs.contains("client.streamFunction(\"GetGreeting\""),
             "Missing streamFunction"
+        );
+        assert!(funcs.contains(", options)"), "Should pass options to encodeArgs: {}", funcs);
+    }
+
+    #[test]
+    fn test_render_parse_function() {
+        let files = render_all(
+            r##"
+            class Person {
+                name string
+                age int
+            }
+            function ExtractPerson(input: string) -> Person {
+                client "openai/gpt-4o"
+                prompt #"Extract: {{ input }}"#
+            }
+            "##,
+        );
+
+        let funcs = get_file(&files, "BamlParseFunctions.kt");
+        assert!(
+            funcs.contains("suspend fun ExtractPerson("),
+            "Missing parse function: {}",
+            funcs
+        );
+        assert!(
+            funcs.contains("text: String"),
+            "Parse function should take text: String param: {}",
+            funcs
+        );
+        assert!(
+            funcs.contains("options: CallOptions? = null"),
+            "Parse function should accept CallOptions: {}",
+            funcs
+        );
+        assert!(
+            funcs.contains("client.callFunctionParse(\"ExtractPerson\""),
+            "Should call callFunctionParse: {}",
+            funcs
+        );
+        assert!(
+            funcs.contains("\"stream\" to false"),
+            "Parse args should include stream=false: {}",
+            funcs
         );
     }
 

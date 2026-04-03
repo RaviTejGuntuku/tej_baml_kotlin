@@ -472,39 +472,38 @@ cd language_client_kotlin && \
 
 ### Verifying Phase 1 features
 
-**Client override in CallOptions:**
+**Client override in CallOptions** (unit test):
 ```bash
-# Verify client is serialized to protobuf HostFunctionArguments.client_registry
 ./gradlew cleanTest test --tests "com.boundaryml.baml.unit.EncodeTest.encode function args with client override"
 ```
 
-**Parse mode (call_function_parse):**
+**Parse mode codegen** (Rust render test — verifies template output):
 ```bash
-# Verify parse template is generated — check the BamlParseFunctions.kt file in codegen output
 cd engine
-cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
-ls language_client_kotlin/src/test/kotlin/com/boundaryml/baml/codegen/generated/
-# BamlParseFunctions.kt is generated but excluded from fixture (needs runtime client).
-# Verify it renders correctly:
-cargo test -p generators-kotlin test_all_files_generated -- --nocapture
+cargo test -p generators-kotlin test_render_parse_function -- --nocapture
 ```
 
-**Generated function signatures include CallOptions:**
+**CallOptions in function/stream templates** (Rust render tests — verifies `options` param is present):
 ```bash
-# Regenerate fixtures and check that function templates accept options parameter
 cd engine
-cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
-# Inspect: generated functions should have `options: CallOptions? = null` as last param
+cargo test -p generators-kotlin test_render_function -- --nocapture
+cargo test -p generators-kotlin test_render_stream_function -- --nocapture
 ```
 
-**CLI integration:**
-The Kotlin generator is fully wired in `engine/cli`. To run manually:
+**CLI end-to-end** (builds baml-cli, generates Kotlin from a BAML project, checks 26 patterns):
 ```bash
-cd engine
-cargo build -p baml-cli
-# Create a test BAML project with: generator kotlin { output_type "kotlin" output_dir "./out" }
-# Then: ./target/debug/baml-cli generate --from ./test_project
+# One-time: cd engine && cargo build -p baml-cli
+./scripts/test_cli_generate.sh
 ```
+
+This script creates a temporary BAML project, runs `baml-cli generate` with `output_type "kotlin"`, and verifies:
+- All 13 expected files are generated
+- Classes have correct `decode(fields, typeMap)` signature
+- Enums, functions, stream functions, parse functions are present
+- `CallOptions` parameter is in all function signatures
+- Parse functions use `callFunctionParse` with `stream=false`
+- Type map uses separate `(namespace, name)` args
+- Import path is `com.boundaryml.baml.cffi.HostValue` (no `v1`)
 
 ### Key files
 
