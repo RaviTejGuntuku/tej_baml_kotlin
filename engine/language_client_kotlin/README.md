@@ -546,18 +546,52 @@ cd engine/language_client_kotlin
 ./gradlew publishToMavenLocal
 ```
 
-### Verifying the published artifact
+### Full validation checklist
+
+Run these after any change to native libs, publishing config, or the SDK:
 
 ```bash
-# Check the JAR exists in local Maven repo
-ls ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.jar
+# --- 1. Verify native libraries are correct architecture ---
+file baml_language/target/release/libbridge_cffi.dylib
+# Expected: Mach-O 64-bit dynamically linked shared library arm64
 
-# Verify native libraries are bundled inside the JAR
+file baml_language/target/aarch64-linux-android/release/libbridge_cffi.so
+# Expected: ELF 64-bit LSB shared object, ARM aarch64
+
+file baml_language/target/x86_64-linux-android/release/libbridge_cffi.so
+# Expected: ELF 64-bit LSB shared object, x86-64
+
+# --- 2. Publish to mavenLocal ---
+cd engine/language_client_kotlin
+./gradlew publishToMavenLocal
+
+# --- 3. Verify JAR exists and contains native libs ---
+ls ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.jar
+# Expected: file exists, ~12MB
+
 jar tf ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.jar | grep native
 # Expected:
 #   native/darwin-aarch64/libbridge_cffi.dylib
 #   native/android-arm64/libbridge_cffi.so
 #   native/android-x86_64/libbridge_cffi.so
+
+# --- 4. Verify POM metadata ---
+head -20 ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/baml-kotlin-0.1.0-SNAPSHOT.pom
+# Expected: groupId=com.boundaryml, artifactId=baml-kotlin
+
+# --- 5. Run all SDK tests (120 tests: unit + codegen + integration) ---
+./gradlew cleanTest test
+# Expected: 119 passed, 0 failed, 0 skipped
+
+# --- 6. Run Rust codegen tests ---
+cd ../..  # back to engine/
+cargo test -p generators-kotlin --lib
+# Expected: 160 passed, 1 ignored
+
+# --- 7. Run CLI E2E test ---
+cd language_client_kotlin
+./scripts/test_cli_generate.sh
+# Expected: ALL 26 CHECKS PASSED
 ```
 
 ### Using the SDK from another project
