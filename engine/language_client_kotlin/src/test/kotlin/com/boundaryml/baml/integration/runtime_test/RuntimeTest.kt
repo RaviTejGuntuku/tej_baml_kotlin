@@ -1,22 +1,14 @@
-package com.boundaryml.baml.integration
+package com.boundaryml.baml.integration.runtime_test
 
 import com.boundaryml.baml.BamlFfi
 import com.boundaryml.baml.BamlRuntime
+import com.boundaryml.baml.integration.BamlProject
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/**
- * Integration tests that require the actual bridge_cffi dylib.
- * These tests are skipped if the library is not available.
- *
- * Build the dylib first: cargo build -p bridge_cffi
- * Set BAML_LIBRARY_PATH to the built library path.
- *
- * BAML sources: src/test/resources/baml/fake_client.baml, extract_function.baml
- */
 class RuntimeTest {
 
     companion object {
@@ -44,16 +36,14 @@ class RuntimeTest {
         val version = BamlRuntime.version()
         assertNotNull(version)
         assertTrue(version.isNotEmpty(), "Version should not be empty")
-        // Basic semver check: should contain at least one dot
         assertTrue(version.contains("."), "Version '$version' should be semver-like")
     }
 
     @Test
     fun `create runtime with valid BAML files`() {
         requireFfi()
-        val srcFiles = BamlTestResources.load("fake_client.baml", "extract_function.baml")
-
-        val runtime = BamlRuntime.create(rootPath = ".", srcFiles = srcFiles)
+        val project = BamlProject.load(this::class)
+        val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         assertNotNull(runtime)
         runtime.destroy()
     }
@@ -61,10 +51,7 @@ class RuntimeTest {
     @Test
     fun `create runtime with empty files`() {
         requireFfi()
-        val runtime = BamlRuntime.create(
-            rootPath = ".",
-            srcFiles = emptyMap(),
-        )
+        val runtime = BamlRuntime.create(rootPath = ".", srcFiles = emptyMap())
         assertNotNull(runtime)
         runtime.destroy()
     }
@@ -72,11 +59,7 @@ class RuntimeTest {
     @Test
     fun `destroy runtime does not crash`() {
         requireFfi()
-        val runtime = BamlRuntime.create(
-            rootPath = ".",
-            srcFiles = emptyMap(),
-        )
+        val runtime = BamlRuntime.create(rootPath = ".", srcFiles = emptyMap())
         runtime.destroy()
-        // No exception = success
     }
 }

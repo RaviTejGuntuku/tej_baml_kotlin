@@ -1,30 +1,60 @@
 package com.boundaryml.baml.integration
 
+import java.io.File
+
 /**
- * Loads `.baml` files from `src/test/resources/baml/` for integration tests.
+ * Loads a BAML project from the source tree for integration tests.
  *
- * Tests compose the files they need — e.g., an LLM test loads the client file
- * plus the function file(s), while a runtime lifecycle test loads the fake client.
+ * Each integration test is a self-contained BAML project directory:
+ * ```
+ * structured_output_test/
+ * ├── baml_src/
+ * │   ├── clients.baml
+ * │   ├── types.baml
+ * │   └── functions.baml
+ * └── StructuredOutputTest.kt
+ * ```
  *
  * Usage:
  * ```
- * val srcFiles = BamlTestResources.load("openrouter_client.baml", "greeting_functions.baml")
- * val runtime = BamlRuntime.create(rootPath = ".", srcFiles = srcFiles)
+ * val project = BamlProject.load(this::class)
+ * val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
  * ```
  */
-object BamlTestResources {
+data class BamlProject(
+    val rootPath: String,
+    val srcFiles: Map<String, String>
+) {
+    companion object {
+        private val INTEGRATION_DIR = File("src/test/kotlin/com/boundaryml/baml/integration")
 
-    /**
-     * Load one or more `.baml` files from the test resources directory.
-     * Returns a map of filename → content suitable for [BamlRuntime.create].
-     */
-    fun load(vararg filenames: String): Map<String, String> {
-        return filenames.associate { filename ->
-            val content = javaClass.classLoader
-                .getResource("baml/$filename")
-                ?.readText()
-                ?: error("Test resource not found: baml/$filename")
-            filename to content
+        /**
+         * Load the BAML project for the given test class.
+         * Resolves the baml_src/ directory relative to the test's package directory.
+         */
+        fun load(testClass: kotlin.reflect.KClass<*>): BamlProject {
+            val packageName = testClass.java.`package`?.name ?: error("No package for $testClass")
+            val dirName = packageName.substringAfterLast(".")
+            return loadByName(dirName)
+        }
+
+        /**
+         * Load a BAML project by directory name.
+         */
+        fun loadByName(projectName: String): BamlProject {
+            val projectDir = INTEGRATION_DIR.resolve(projectName)
+            val bamlSrcDir = projectDir.resolve("baml_src")
+            require(bamlSrcDir.isDirectory) { "No baml_src/ directory at ${bamlSrcDir.absolutePath}" }
+
+            val srcFiles = bamlSrcDir.listFiles()
+                ?.filter { it.extension == "baml" }
+                ?.associate { it.name to it.readText() }
+                ?: emptyMap()
+
+            return BamlProject(
+                rootPath = projectDir.absolutePath,
+                srcFiles = srcFiles
+            )
         }
     }
 }

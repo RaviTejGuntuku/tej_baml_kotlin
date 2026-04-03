@@ -34,6 +34,9 @@ pub enum GeneratorOutputType {
 
     #[strum(serialize = "rust")]
     Rust,
+
+    #[strum(serialize = "kotlin")]
+    Kotlin,
 }
 
 impl std::hash::Hash for GeneratorOutputType {
@@ -57,6 +60,7 @@ impl GeneratorOutputType {
             Self::RubySorbet => GeneratorDefaultClientMode::Sync,
             Self::Go => GeneratorDefaultClientMode::Sync,
             Self::Rust => GeneratorDefaultClientMode::Sync,
+            Self::Kotlin => GeneratorDefaultClientMode::Async,
         }
     }
 
@@ -71,6 +75,7 @@ impl GeneratorOutputType {
             Self::RubySorbet => GeneratorDefaultClientMode::Sync,
             Self::Go => GeneratorDefaultClientMode::Sync,
             Self::Rust => GeneratorDefaultClientMode::Async,
+            Self::Kotlin => GeneratorDefaultClientMode::Async,
         }
     }
 }

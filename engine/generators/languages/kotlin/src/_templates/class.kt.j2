@@ -1,0 +1,35 @@
+{% if let Some(docstring) = docstring -%}
+{{ crate::utils::prefix_lines(docstring, "/// ") }}
+{%- endif %}
+data class {{ name }}(
+    {% for field in fields -%}
+    {% if let Some(docstring) = field.docstring -%}
+    {{ crate::utils::prefix_lines(docstring, "    /// ") }}
+    {%- endif %}
+    val {{ field.name }}: {{ field.type.serialize_type(pkg) }}{% if !loop.last %},{% endif %}
+    {%- endfor %}
+    {% if dynamic -%}
+    val dynamicProperties: MutableMap<String, Any?> = mutableMapOf()
+    {%- endif %}
+) : BamlSerializable {
+
+    override fun encode(): com.boundaryml.baml.cffi.v1.HostValue {
+        return Serde.encodeClass("{{ name }}", mapOf(
+            {% for field in fields -%}
+            "{{ field.name }}" to {{ field.name }}{% if !loop.last %},{% endif %}
+            {%- endfor %}
+        ){% if dynamic %}, dynamicProperties{% else %}){% endif %}
+    }
+
+    override fun bamlTypeName(): String = "{{ name }}"
+
+    companion object : BamlDeserializable<{{ name }}> {
+        override fun decode(fields: Map<String, Any?>): {{ name }} {
+            return {{ name }}(
+                {% for field in fields -%}
+                {{ field.name }} = fields["{{ field.name }}"] as {{ field.type.serialize_type(pkg) }}{% if !loop.last %},{% endif %}
+                {%- endfor %}
+            )
+        }
+    }
+}

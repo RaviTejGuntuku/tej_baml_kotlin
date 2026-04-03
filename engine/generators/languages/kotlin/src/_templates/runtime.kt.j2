@@ -1,0 +1,41 @@
+package baml_client
+
+import com.boundaryml.baml.*
+
+/**
+ * BAML Runtime — auto-generated.
+ *
+ * Initializes the BAML runtime from the embedded source map and
+ * provides the BamlClient used by generated function wrappers.
+ */
+object BamlRuntime {
+    private var runtime: com.boundaryml.baml.BamlRuntime? = null
+    private var _client: BamlClient? = null
+
+    val client: BamlClient
+        get() {
+            if (_client == null) {
+                init()
+            }
+            return _client!!
+        }
+
+    @Synchronized
+    fun init(envVars: Map<String, String> = emptyMap()) {
+        if (runtime != null) return
+        BamlFfi.load()
+        val rt = com.boundaryml.baml.BamlRuntime.create(
+            rootPath = ".",
+            srcFiles = getBamlFiles()
+        )
+        runtime = rt
+        _client = BamlClient(rt)
+    }
+
+    @Synchronized
+    fun destroy() {
+        runtime?.destroy()
+        runtime = null
+        _client = null
+    }
+}

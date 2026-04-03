@@ -35,6 +35,7 @@ pub(crate) const VALID_OUTPUT_TYPES: &[&str] = &[
     "rest/openapi",
     "boundary-cloud",
     "rust",
+    "kotlin",
 ];
 
 /// Valid values for `default_client_mode`.

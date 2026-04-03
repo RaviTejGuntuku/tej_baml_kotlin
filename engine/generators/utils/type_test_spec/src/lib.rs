@@ -30,6 +30,8 @@ pub struct TestCase {
     pub go: Option<(String, String)>,
     /// Expected Rust types: (non_streaming, streaming)
     pub rust: Option<(String, String)>,
+    /// Expected Kotlin types: (non_streaming, streaming)
+    pub kotlin: Option<(String, String)>,
     /// For enum tests: the expected values
     pub enum_values: Option<Vec<String>>,
     /// Line number in the markdown file where this test is defined (1-indexed)
@@ -108,6 +110,7 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                 || line.trim().starts_with("```typescript")
                 || line.trim().starts_with("```go")
                 || line.trim().starts_with("```rust")
+                || line.trim().starts_with("```kotlin")
                 || line.trim() == "```")
         {
             in_type_block = true;
@@ -129,6 +132,7 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                             Some("typescript") => test.typescript = Some((ns, s)),
                             Some("go") => test.go = Some((ns, s)),
                             Some("rust") => test.rust = Some((ns, s)),
+                            Some("kotlin") => test.kotlin = Some((ns, s)),
                             _ => {}
                         }
                     }
@@ -165,6 +169,7 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                             Some("typescript") => test.typescript = Some((ns, s)),
                             Some("go") => test.go = Some((ns, s)),
                             Some("rust") => test.rust = Some((ns, s)),
+                            Some("kotlin") => test.kotlin = Some((ns, s)),
                             _ => {}
                         }
                     }
@@ -213,6 +218,11 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                 parse_mode = ParseMode::None;
                 pending_non_streaming = None;
                 pending_streaming = None;
+            } else if section == "Kotlin" {
+                current_language = Some("kotlin");
+                parse_mode = ParseMode::None;
+                pending_non_streaming = None;
+                pending_streaming = None;
             } else {
                 current_language = None;
                 parse_mode = ParseMode::None;
@@ -241,6 +251,7 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                             Some("typescript") => test.typescript = Some((ns.clone(), s.clone())),
                             Some("go") => test.go = Some((ns.clone(), s.clone())),
                             Some("rust") => test.rust = Some((ns.clone(), s.clone())),
+                            Some("kotlin") => test.kotlin = Some((ns.clone(), s.clone())),
                             _ => {}
                         }
                     }
@@ -259,6 +270,7 @@ pub fn parse_test_spec(content: &str) -> Vec<TestCase> {
                 Some("typescript") => test.typescript = Some((ns, s)),
                 Some("go") => test.go = Some((ns, s)),
                 Some("rust") => test.rust = Some((ns, s)),
+                Some("kotlin") => test.kotlin = Some((ns, s)),
                 _ => {}
             }
         }
@@ -284,6 +296,7 @@ struct TestCaseBuilder {
     typescript: Option<(String, String)>,
     go: Option<(String, String)>,
     rust: Option<(String, String)>,
+    kotlin: Option<(String, String)>,
     enum_values: Option<Vec<String>>,
     line_number: usize,
 }
@@ -298,6 +311,7 @@ impl TestCaseBuilder {
             typescript: None,
             go: None,
             rust: None,
+            kotlin: None,
             enum_values: None,
             line_number,
         }
@@ -313,6 +327,7 @@ impl TestCaseBuilder {
             typescript: self.typescript,
             go: self.go,
             rust: self.rust,
+            kotlin: self.kotlin,
             enum_values: self.enum_values,
             line_number: self.line_number,
         })
@@ -383,6 +398,7 @@ pub fn generate_test_code(language: &str) -> String {
         "typescript" => ("type_gen", "typescript", "serialize_type"),
         "go" => ("type_gen", "go", "serialize_type"),
         "rust" => ("type_gen", "rust", "serialize_type"),
+        "kotlin" => ("type_gen", "kotlin", "serialize_type"),
         _ => panic!("Unknown language: {}", language),
     };
 
@@ -395,6 +411,7 @@ pub fn generate_test_code(language: &str) -> String {
             "typescript" => test.typescript.is_some(),
             "go" => test.go.is_some(),
             "rust" => test.rust.is_some(),
+            "kotlin" => test.kotlin.is_some(),
             _ => false,
         };
         let has_enum_test = test.enum_values.is_some();
@@ -436,6 +453,7 @@ pub fn generate_test_code(language: &str) -> String {
                 "typescript" => test.typescript.as_ref().unwrap(),
                 "go" => test.go.as_ref().unwrap(),
                 "rust" => test.rust.as_ref().unwrap(),
+                "kotlin" => test.kotlin.as_ref().unwrap(),
                 _ => unreachable!(),
             };
 
@@ -465,6 +483,7 @@ fn language_short(language: &str) -> &str {
         "typescript" => "ts",
         "go" => "go",
         "rust" => "rs",
+        "kotlin" => "kt",
         _ => language,
     }
 }

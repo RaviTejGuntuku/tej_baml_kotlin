@@ -247,17 +247,12 @@ object Serde {
 
     /**
      * Decode a raw object value.
+     * Media and type builder objects come as opaque BamlObjectHandle references.
      */
     private fun decodeObjectValue(objectValue: CFFIValueRawObject): Any? {
         return when (objectValue.objectCase) {
-            CFFIValueRawObject.ObjectCase.MEDIA -> {
-                val handle = objectValue.media
-                BamlObjectRef(handle)
-            }
-            CFFIValueRawObject.ObjectCase.TYPE -> {
-                val handle = objectValue.type
-                BamlObjectRef(handle)
-            }
+            CFFIValueRawObject.ObjectCase.MEDIA -> BamlObjectRef(objectValue.media)
+            CFFIValueRawObject.ObjectCase.TYPE -> BamlObjectRef(objectValue.type)
             CFFIValueRawObject.ObjectCase.OBJECT_NOT_SET -> null
             else -> null
         }

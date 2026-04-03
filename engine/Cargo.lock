@@ -3152,6 +3152,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "generators-kotlin"
+version = "0.219.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "internal-baml-core",
+ "prettydiff",
+ "type_test_spec",
+]
+
+[[package]]
 name = "generators-lib"
 version = "0.219.0"
 dependencies = [
@@ -3159,6 +3172,7 @@ dependencies = [
  "baml-log",
  "dir-writer",
  "generators-go",
+ "generators-kotlin",
  "generators-openapi",
  "generators-python",
  "generators-ruby",
@@ -6634,21 +6648,6 @@ dependencies = [
 [[package]]
 name = "sandbox"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum 0.7.9",
- "baml-types",
- "env_logger",
- "log",
- "reqwest",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
- "uuid",
- "web-time",
-]
 
 [[package]]
 name = "scc"
@@ -7745,14 +7744,7 @@ dependencies = [
 
 [[package]]
 name = "tools"
-version = "0.219.0"
-dependencies = [
- "anyhow",
- "notify-debouncer-full",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
+version = "0.1.0"
 
 [[package]]
 name = "toon"

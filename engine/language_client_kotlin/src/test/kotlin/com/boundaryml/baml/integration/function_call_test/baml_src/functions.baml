@@ -1,6 +1,3 @@
-// Functions for testing basic function calls with string args and returns.
-// Requires: openrouter_client.baml
-
 function GetGreeting(name: string) -> string {
     client MyClient
     prompt #"

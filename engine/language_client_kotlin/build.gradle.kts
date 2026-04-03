@@ -83,6 +83,28 @@ tasks.test {
     }
 }
 
+// ./gradlew demo — runs the interactive demo showing the full SDK pipeline
+tasks.register<JavaExec>("demo") {
+    group = "application"
+    description = "Run the BAML Kotlin SDK interactive demo"
+    mainClass.set("com.boundaryml.baml.Demo")
+    classpath = sourceSets["main"].runtimeClasspath
+
+    // Resolve dylib path (same logic as test task)
+    val explicitPath = System.getenv("BAML_LIBRARY_PATH")
+        ?.let { file(it).absolutePath }
+    val dylibFile = file("../../baml_language/target/release/libbridge_cffi.dylib")
+    val soFile = file("../../baml_language/target/release/libbridge_cffi.so")
+    val autoPath = dylibFile.takeIf { it.exists() }?.absolutePath
+        ?: soFile.takeIf { it.exists() }?.absolutePath
+    val libPath = explicitPath ?: autoPath ?: ""
+    environment("BAML_LIBRARY_PATH", libPath)
+    environment("OPENROUTER_API_KEY", envOrDotenv("OPENROUTER_API_KEY"))
+
+    // Show output directly in terminal
+    standardInput = System.`in`
+}
+
 kotlin {
     jvmToolchain(21)
 }

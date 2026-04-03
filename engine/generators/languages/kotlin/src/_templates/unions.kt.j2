@@ -1,0 +1,22 @@
+{% if let Some(docstring) = docstring -%}
+{{ crate::utils::prefix_lines(docstring, "/// ") }}
+{%- endif %}
+sealed class {{ name }} {
+    {% for variant in variants -%}
+    data class {{ variant.name }}(val value: {{ variant.type_.serialize_type(pkg) }}) : {{ name }}()
+    {% endfor %}
+
+    companion object : BamlDeserializable<{{ name }}> {
+        override fun decode(fields: Map<String, Any?>): {{ name }} {
+            val variantName = fields["__variant"] as? String
+                ?: throw IllegalArgumentException("Missing __variant in union {{ name }}")
+            val value = fields["__value"]
+            return when (variantName) {
+                {% for variant in variants -%}
+                "{{ variant.cffi_name }}" -> {{ variant.name }}(value as {{ variant.type_.serialize_type(pkg) }})
+                {% endfor -%}
+                else -> throw IllegalArgumentException("Unknown variant '$variantName' for union {{ name }}")
+            }
+        }
+    }
+}

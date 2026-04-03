@@ -128,6 +128,9 @@ pub fn check_version(
                 GeneratorOutputType::Rust => {
                     format!("cargo add baml@{gen_version}")
                 }
+                GeneratorOutputType::Kotlin => {
+                    format!("update BAML Kotlin SDK to version {gen_version}")
+                }
             };
             (
                 match generator_type {

@@ -1,6 +1,3 @@
-// Shared OpenRouter client for integration tests.
-// Requires OPENROUTER_API_KEY environment variable.
-
 client<llm> MyClient {
     provider openai
     options {

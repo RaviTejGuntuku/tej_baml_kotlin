@@ -1,6 +1,3 @@
-// Story function for streaming tests.
-// Requires: openrouter_client.baml
-
 function TellStory(topic: string) -> string {
     client MyClient
     prompt #"

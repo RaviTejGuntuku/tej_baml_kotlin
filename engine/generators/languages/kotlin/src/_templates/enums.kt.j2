@@ -1,0 +1,29 @@
+{%- if let Some(docstring) = docstring %}
+{{ crate::utils::prefix_lines(docstring, "/// ") }}
+{%- endif %}
+enum class {{ name }}(val value: String) : BamlSerializable {
+    {% if values.is_empty() -%}
+    // no values defined for {{ name }}
+    {%- else -%}
+    {%- for (value, m_docstring) in values %}
+    {%- if let Some(docstring) = m_docstring %}
+    {{ crate::utils::prefix_lines(docstring, "    /// ") }}
+    {%- endif %}
+    {{ value }}("{{ value }}"){% if !loop.last %},{% else %};{% endif %}
+    {%- endfor %}
+    {%- endif %}
+
+    override fun encode(): com.boundaryml.baml.cffi.v1.HostValue {
+        return Serde.encodeEnum("{{ name }}", this.value)
+    }
+
+    override fun bamlTypeName(): String = "{{ name }}"
+
+    companion object {
+        fun fromString(value: String): {{ name }}{% if dynamic %}? {% else %} {% endif %}=
+            entries.find { it.value == value }{% if !dynamic %}
+                ?: throw IllegalArgumentException("Invalid {{ name }}: $value"){% endif %}
+
+        fun values_(): List<{{ name }}> = entries
+    }
+}

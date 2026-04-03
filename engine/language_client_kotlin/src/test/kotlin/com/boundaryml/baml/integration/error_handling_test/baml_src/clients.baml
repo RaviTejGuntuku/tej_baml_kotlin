@@ -1,6 +1,3 @@
-// Fake client for tests that don't need real LLM calls
-// (runtime lifecycle, error handling).
-
 client<llm> MyClient {
     provider openai
     options {

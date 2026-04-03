@@ -129,18 +129,25 @@ pub extern "C" fn call_function_parse_from_c(
     encode_success_response()
 }
 
-/// Stream a function call (placeholder).
+/// Stream a function call.
+///
+/// Currently the engine returns a single result (no token-by-token streaming),
+/// so this behaves like `call_function_from_c`: it makes the full LLM call and
+/// delivers the result as a final callback (`is_done=1`). When the engine adds
+/// incremental streaming support, this function will send partial results with
+/// `is_done=0` before the final `is_done=1`.
 #[unsafe(no_mangle)]
 pub extern "C" fn call_function_stream_from_c(
     _runtime: *const libc::c_void,
-    _function_name: *const libc::c_char,
-    _encoded_args: *const libc::c_char,
-    _length: usize,
+    function_name: *const libc::c_char,
+    encoded_args: *const libc::c_char,
+    length: usize,
     id: u32,
 ) -> Buffer {
-    // TODO: Implement when bex_engine supports streaming
-    send_error_to_callback(id, "Streaming not implemented in bridge_cffi");
-    encode_success_response()
+    match call_function_inner(function_name, encoded_args, length, id) {
+        Ok(()) => encode_success_response(),
+        Err(e) => encode_error_response(&e),
+    }
 }
 
 /// Cancel an in-flight function call.

@@ -1,6 +1,7 @@
-package com.boundaryml.baml.integration
+package com.boundaryml.baml.integration.error_handling_test
 
 import com.boundaryml.baml.*
+import com.boundaryml.baml.integration.BamlProject
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
@@ -8,12 +9,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/**
- * Integration tests for error handling in BAML function calls.
- * Requires the bridge_cffi dylib (but NOT a real API key).
- *
- * BAML sources: src/test/resources/baml/fake_client.baml, echo_function.baml
- */
 class ErrorHandlingTest {
 
     companion object {
@@ -38,9 +33,8 @@ class ErrorHandlingTest {
     @Test
     fun `call non-existent function throws`() = runBlocking {
         requireFfi()
-
-        val srcFiles = BamlTestResources.load("fake_client.baml")
-        val runtime = BamlRuntime.create(rootPath = ".", srcFiles = srcFiles)
+        val project = BamlProject.load(this::class)
+        val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         val args = Serde.encodeArgs(mapOf("input" to "test"))
 
@@ -48,25 +42,21 @@ class ErrorHandlingTest {
             client.callFunction("NonExistentFunction", args)
         }
         assertTrue(exception.message?.isNotEmpty() == true)
-
         runtime.destroy()
     }
 
     @Test
     fun `invalid protobuf args throws`() = runBlocking {
         requireFfi()
-
-        val srcFiles = BamlTestResources.load("fake_client.baml", "echo_function.baml")
-        val runtime = BamlRuntime.create(rootPath = ".", srcFiles = srcFiles)
+        val project = BamlProject.load(this::class)
+        val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
-        // Send garbage bytes as encoded args
         val badArgs = byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x00, 0x01)
 
         val exception = assertFailsWith<Exception> {
             client.callFunction("Echo", badArgs)
         }
         assertTrue(exception.message?.isNotEmpty() == true)
-
         runtime.destroy()
     }
 }

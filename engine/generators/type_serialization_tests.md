@@ -57,6 +57,11 @@ class T { f string }
 - Non-streaming: `String`
 - Streaming: `Option<String>`
 
+### Kotlin
+
+- Non-streaming: `String`
+- Streaming: `String?`
+
 ---
 
 ## int_field
@@ -86,6 +91,11 @@ class T { f int }
 
 - Non-streaming: `i64`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long?`
 
 ---
 
@@ -117,6 +127,11 @@ class T { f float }
 - Non-streaming: `f64`
 - Streaming: `Option<f64>`
 
+### Kotlin
+
+- Non-streaming: `Double`
+- Streaming: `Double?`
+
 ---
 
 ## bool_field
@@ -146,6 +161,11 @@ class T { f bool }
 
 - Non-streaming: `bool`
 - Streaming: `Option<bool>`
+
+### Kotlin
+
+- Non-streaming: `Boolean`
+- Streaming: `Boolean?`
 
 ---
 
@@ -179,6 +199,11 @@ class T { f image }
 - Non-streaming: `Image`
 - Streaming: `Option<types::Image>`
 
+### Kotlin
+
+- Non-streaming: `Image`
+- Streaming: `types.Image?`
+
 ---
 
 ## optional_image
@@ -208,6 +233,11 @@ class T { f image? }
 
 - Non-streaming: `Option<Image>`
 - Streaming: `Option<types::Image>`
+
+### Kotlin
+
+- Non-streaming: `Image?`
+- Streaming: `types.Image?`
 
 ---
 
@@ -239,6 +269,11 @@ class T { f audio }
 - Non-streaming: `Audio`
 - Streaming: `Option<types::Audio>`
 
+### Kotlin
+
+- Non-streaming: `Audio`
+- Streaming: `types.Audio?`
+
 ---
 
 ## optional_audio
@@ -268,6 +303,11 @@ class T { f audio? }
 
 - Non-streaming: `Option<Audio>`
 - Streaming: `Option<types::Audio>`
+
+### Kotlin
+
+- Non-streaming: `Audio?`
+- Streaming: `types.Audio?`
 
 ---
 
@@ -301,6 +341,11 @@ class T { f string? }
 - Non-streaming: `Option<String>`
 - Streaming: `Option<String>`
 
+### Kotlin
+
+- Non-streaming: `String?`
+- Streaming: `String?`
+
 ---
 
 ## optional_int
@@ -330,6 +375,11 @@ class T { f int? }
 
 - Non-streaming: `Option<i64>`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long?`
+- Streaming: `Long?`
 
 ---
 
@@ -363,6 +413,11 @@ class T { f "hello" }
 - Non-streaming: `String`
 - Streaming: `Option<String>`
 
+### Kotlin
+
+- Non-streaming: `String`
+- Streaming: `String?`
+
 ---
 
 ## literal_int
@@ -392,6 +447,11 @@ class T { f 42 }
 
 - Non-streaming: `i64`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long?`
 
 ---
 
@@ -423,6 +483,11 @@ class T { f true }
 - Non-streaming: `bool`
 - Streaming: `Option<bool>`
 
+### Kotlin
+
+- Non-streaming: `Boolean`
+- Streaming: `Boolean?`
+
 ---
 
 ## literal_bool_false
@@ -452,6 +517,11 @@ class T { f false }
 
 - Non-streaming: `bool`
 - Streaming: `Option<bool>`
+
+### Kotlin
+
+- Non-streaming: `Boolean`
+- Streaming: `Boolean?`
 
 ---
 
@@ -485,6 +555,11 @@ class T { f string[] }
 - Non-streaming: `Vec<String>`
 - Streaming: `Vec<String>`
 
+### Kotlin
+
+- Non-streaming: `List<String>`
+- Streaming: `List<String>`
+
 ---
 
 ## list_of_ints
@@ -514,6 +589,11 @@ class T { f int[] }
 
 - Non-streaming: `Vec<i64>`
 - Streaming: `Vec<i64>`
+
+### Kotlin
+
+- Non-streaming: `List<Long>`
+- Streaming: `List<Long>`
 
 ---
 
@@ -545,6 +625,11 @@ class T { f string[][] }
 - Non-streaming: `Vec<Vec<String>>`
 - Streaming: `Vec<Vec<String>>`
 
+### Kotlin
+
+- Non-streaming: `List<List<String>>`
+- Streaming: `List<List<String>>`
+
 ---
 
 ## optional_list
@@ -574,6 +659,11 @@ class T { f string[]? }
 
 - Non-streaming: `Option<Vec<String>>`
 - Streaming: `Option<Vec<String>>`
+
+### Kotlin
+
+- Non-streaming: `List<String>?`
+- Streaming: `List<String>?`
 
 ---
 
@@ -605,6 +695,11 @@ class T { f map<string, int> }
 - Non-streaming: `std::collections::HashMap<String, i64>`
 - Streaming: `std::collections::HashMap<String, i64>`
 
+### Kotlin
+
+- Non-streaming: `Map<String, Long>`
+- Streaming: `Map<String, Long>`
+
 ---
 
 ## map_string_to_string
@@ -634,6 +729,11 @@ class T { f map<string, string> }
 
 - Non-streaming: `std::collections::HashMap<String, String>`
 - Streaming: `std::collections::HashMap<String, String>`
+
+### Kotlin
+
+- Non-streaming: `Map<String, String>`
+- Streaming: `Map<String, String>`
 
 ---
 
@@ -665,6 +765,11 @@ class T { f map<string, int>? }
 - Non-streaming: `Option<std::collections::HashMap<String, i64>>`
 - Streaming: `Option<std::collections::HashMap<String, i64>>`
 
+### Kotlin
+
+- Non-streaming: `Map<String, Long>?`
+- Streaming: `Map<String, Long>?`
+
 ---
 
 ## map_of_lists
@@ -694,6 +799,11 @@ class T { f map<string, int[]> }
 
 - Non-streaming: `std::collections::HashMap<String, Vec<i64>>`
 - Streaming: `std::collections::HashMap<String, Vec<i64>>`
+
+### Kotlin
+
+- Non-streaming: `Map<String, List<Long>>`
+- Streaming: `Map<String, List<Long>>`
 
 ---
 
@@ -727,6 +837,11 @@ class T { f int | string }
 - Non-streaming: `Union2IntOrString`
 - Streaming: `Option<types::Union2IntOrString>`
 
+### Kotlin
+
+- Non-streaming: `Union2IntOrString`
+- Streaming: `types.Union2IntOrString?`
+
 ---
 
 ## union_int_string_bool
@@ -757,6 +872,11 @@ class T { f int | string | bool }
 - Non-streaming: `Union3BoolOrIntOrString`
 - Streaming: `Option<types::Union3BoolOrIntOrString>`
 
+### Kotlin
+
+- Non-streaming: `Union3BoolOrIntOrString`
+- Streaming: `types.Union3BoolOrIntOrString?`
+
 ---
 
 ## optional_union
@@ -786,6 +906,11 @@ class T { f (int | string)? }
 
 - Non-streaming: `Option<Union2IntOrString>`
 - Streaming: `Option<types::Union2IntOrString>`
+
+### Kotlin
+
+- Non-streaming: `Union2IntOrString?`
+- Streaming: `types.Union2IntOrString?`
 
 ---
 
@@ -820,6 +945,11 @@ class Outer { inner Inner }
 - Non-streaming: `Inner`
 - Streaming: `Option<Inner>`
 
+### Kotlin
+
+- Non-streaming: `Inner`
+- Streaming: `Inner?`
+
 ---
 
 ## nested_class_c_to_b
@@ -852,6 +982,11 @@ class C { b B }
 - Non-streaming: `B`
 - Streaming: `Option<B>`
 
+### Kotlin
+
+- Non-streaming: `B`
+- Streaming: `B?`
+
 ---
 
 ## nested_class_b_to_a
@@ -883,6 +1018,11 @@ class C { b B }
 
 - Non-streaming: `A`
 - Streaming: `Option<A>`
+
+### Kotlin
+
+- Non-streaming: `A`
+- Streaming: `A?`
 
 ---
 
@@ -920,6 +1060,11 @@ class T { status Status }
 - Non-streaming: `Status`
 - Streaming: `Option<types::Status>`
 
+### Kotlin
+
+- Non-streaming: `Status`
+- Streaming: `types.Status?`
+
 ---
 
 ## optional_enum
@@ -954,6 +1099,11 @@ class T { status Status? }
 - Non-streaming: `Option<Status>`
 - Streaming: `Option<types::Status>`
 
+### Kotlin
+
+- Non-streaming: `Status?`
+- Streaming: `types.Status?`
+
 ---
 
 # Streaming Attributes
@@ -986,6 +1136,11 @@ class T { f string @stream.with_state }
 - Non-streaming: `String`
 - Streaming: `baml::StreamState<Option<String>>`
 
+### Kotlin
+
+- Non-streaming: `String`
+- Streaming: `StreamState<String?>`
+
 ---
 
 ## stream_with_state_int
@@ -1015,6 +1170,11 @@ class T { f int @stream.with_state }
 
 - Non-streaming: `i64`
 - Streaming: `baml::StreamState<Option<i64>>`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `StreamState<Long?>`
 
 ---
 
@@ -1046,6 +1206,11 @@ class T { f string? @stream.with_state }
 - Non-streaming: `Option<String>`
 - Streaming: `baml::StreamState<Option<String>>`
 
+### Kotlin
+
+- Non-streaming: `String?`
+- Streaming: `StreamState<String?>`
+
 ---
 
 ## stream_not_null_string
@@ -1072,6 +1237,11 @@ class T { f string @stream.not_null }
 - Streaming: `string`
 
 ### Rust
+
+- Non-streaming: `String`
+- Streaming: `String`
+
+### Kotlin
 
 - Non-streaming: `String`
 - Streaming: `String`
@@ -1106,6 +1276,11 @@ class T { f int @stream.not_null }
 - Non-streaming: `i64`
 - Streaming: `i64`
 
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long`
+
 ---
 
 ## stream_state_inside_union
@@ -1136,6 +1311,11 @@ class T { f (int @stream.with_state | string) }
 - Non-streaming: `Union2IntOrString`
 - Streaming: `Option<Union2StreamStateIntOrString>`
 
+### Kotlin
+
+- Non-streaming: `Union2IntOrString`
+- Streaming: `Union2StreamStateIntOrString?`
+
 ---
 
 ## stream_not_null_with_state
@@ -1165,6 +1345,11 @@ class T { f string @stream.not_null @stream.with_state }
 
 - Non-streaming: `String`
 - Streaming: `baml::StreamState<String>`
+
+### Kotlin
+
+- Non-streaming: `String`
+- Streaming: `StreamState<String>`
 
 ---
 
@@ -1197,6 +1382,11 @@ class T { inner Inner @stream.done }
 - Non-streaming: `Inner`
 - Streaming: `Option<types::Inner>`
 
+### Kotlin
+
+- Non-streaming: `Inner`
+- Streaming: `types.Inner?`
+
 ---
 
 ## stream_done_with_state
@@ -1227,6 +1417,11 @@ class T { inner Inner @stream.done @stream.with_state }
 
 - Non-streaming: `Inner`
 - Streaming: `baml::StreamState<Option<types::Inner>>`
+
+### Kotlin
+
+- Non-streaming: `Inner`
+- Streaming: `StreamState<types.Inner?>`
 
 ---
 
@@ -1259,6 +1454,11 @@ class T { items (Inner @stream.done)[] }
 - Non-streaming: `Vec<Inner>`
 - Streaming: `Vec<types::Inner>`
 
+### Kotlin
+
+- Non-streaming: `List<Inner>`
+- Streaming: `List<types.Inner>`
+
 ---
 
 ## list_field_with_stream_done
@@ -1289,6 +1489,11 @@ class T { items Inner[] @stream.done }
 
 - Non-streaming: `Vec<Inner>`
 - Streaming: `Vec<types::Inner>`
+
+### Kotlin
+
+- Non-streaming: `List<Inner>`
+- Streaming: `List<types.Inner>`
 
 ---
 
@@ -1321,6 +1526,11 @@ class T { matrix Inner[][][] @stream.done }
 - Non-streaming: `Vec<Vec<Vec<Inner>>>`
 - Streaming: `Vec<Vec<Vec<types::Inner>>>`
 
+### Kotlin
+
+- Non-streaming: `List<List<List<Inner>>>`
+- Streaming: `List<List<List<types.Inner>>>`
+
 ---
 
 ## map_with_stream_done
@@ -1351,6 +1561,11 @@ class T { lookup map<string, Inner> @stream.done }
 
 - Non-streaming: `std::collections::HashMap<String, Inner>`
 - Streaming: `std::collections::HashMap<String, types::Inner>`
+
+### Kotlin
+
+- Non-streaming: `Map<String, Inner>`
+- Streaming: `Map<String, types.Inner>`
 
 ---
 
@@ -1385,6 +1600,11 @@ class T { f int @stream.done | string }
 - Non-streaming: `Union2IntOrString`
 - Streaming: `Option<types::Union2IntOrString>`
 
+### Kotlin
+
+- Non-streaming: `Union2IntOrString`
+- Streaming: `types.Union2IntOrString?`
+
 ---
 
 ## union_with_class_variants
@@ -1417,6 +1637,11 @@ class T { f A | B }
 - Non-streaming: `Union2AOrB`
 - Streaming: `Option<Union2AOrB>`
 
+### Kotlin
+
+- Non-streaming: `Union2AOrB`
+- Streaming: `Union2AOrB?`
+
 ---
 
 ## union_class_with_primitive
@@ -1448,6 +1673,11 @@ class T { f Inner | string }
 - Non-streaming: `Union2InnerOrString`
 - Streaming: `Option<Union2InnerOrString>`
 
+### Kotlin
+
+- Non-streaming: `Union2InnerOrString`
+- Streaming: `Union2InnerOrString?`
+
 ---
 
 ## union_with_stream_not_null
@@ -1478,6 +1708,11 @@ class T { f (int | string) @stream.not_null }
 - Non-streaming: `Union2IntOrString`
 - Streaming: `types::Union2IntOrString`
 
+### Kotlin
+
+- Non-streaming: `Union2IntOrString`
+- Streaming: `types.Union2IntOrString`
+
 ---
 
 ## union_with_stream_with_state
@@ -1507,6 +1742,11 @@ class T { f (int | string) @stream.with_state }
 
 - Non-streaming: `Union2IntOrString`
 - Streaming: `baml::StreamState<Option<types::Union2IntOrString>>`
+
+### Kotlin
+
+- Non-streaming: `Union2IntOrString`
+- Streaming: `StreamState<types.Union2IntOrString?>`
 
 ---
 
@@ -1544,6 +1784,11 @@ typing.Optional[types.Checked[int, typing_extensions.Literal['valid_age']]]
 - Non-streaming: `Checked<i64>`
 - Streaming: `Option<types::Checked<i64>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `types.Checked<Long>?`
+
 ---
 
 ## check_on_optional
@@ -1573,6 +1818,11 @@ class T { age int? @check(valid_age, {{ this >= 0 }}) }
 
 - Non-streaming: `Checked<Option<i64>>`
 - Streaming: `types::Checked<Option<i64>>`
+
+### Kotlin
+
+- Non-streaming: `Checked<Long?>`
+- Streaming: `types.Checked<Long?>`
 
 ---
 
@@ -1613,6 +1863,11 @@ types.Checked[typing.Optional[int], typing_extensions.Literal['valid']]
 - Non-streaming: `Checked<Option<i64>>`
 - Streaming: `types::Checked<Option<i64>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long?>`
+- Streaming: `types.Checked<Long?>`
+
 ---
 
 ## check_with_stream_not_null
@@ -1642,6 +1897,11 @@ class T { age int @check(valid_age, {{ this >= 0 }}) @stream.not_null }
 
 - Non-streaming: `Checked<i64>`
 - Streaming: `types::Checked<i64>`
+
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `types.Checked<Long>`
 
 ---
 
@@ -1677,6 +1937,11 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['valid_
 - Non-streaming: `Checked<i64>`
 - Streaming: `baml::StreamState<Option<types::Checked<i64>>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `StreamState<types.Checked<Long>?>`
+
 ---
 
 ## multiple_checks
@@ -1711,6 +1976,11 @@ typing.Optional[types.Checked[int, typing_extensions.Literal['positive', 'small'
 - Non-streaming: `Checked<i64>`
 - Streaming: `Option<types::Checked<i64>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `types.Checked<Long>?`
+
 ---
 
 # Assert Attributes
@@ -1743,6 +2013,11 @@ class T { age int @assert(valid_age, {{ this >= 0 }}) }
 - Non-streaming: `i64`
 - Streaming: `Option<i64>`
 
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long?`
+
 ---
 
 ## assert_on_optional
@@ -1772,6 +2047,11 @@ class T { age int? @assert(valid_age, {{ this >= 0 }}) }
 
 - Non-streaming: `Option<i64>`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long?`
+- Streaming: `Long?`
 
 ---
 
@@ -1803,6 +2083,11 @@ class T { f (int? @assert(valid, {{ this >= 0 }})) | null }
 - Non-streaming: `Option<i64>`
 - Streaming: `Option<i64>`
 
+### Kotlin
+
+- Non-streaming: `Long?`
+- Streaming: `Long?`
+
 ---
 
 ## assert_with_stream_not_null
@@ -1832,6 +2117,11 @@ class T { age int @assert(valid_age, {{ this >= 0 }}) @stream.not_null }
 
 - Non-streaming: `i64`
 - Streaming: `i64`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long`
 
 ---
 
@@ -1863,6 +2153,11 @@ class T { age int @assert(valid_age, {{ this >= 0 }}) @stream.with_state }
 - Non-streaming: `i64`
 - Streaming: `baml::StreamState<Option<i64>>`
 
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `StreamState<Long?>`
+
 ---
 
 ## multiple_asserts
@@ -1892,6 +2187,11 @@ class T { age int @assert(positive, {{ this > 0 }}) @assert(small, {{ this < 100
 
 - Non-streaming: `i64`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long?`
 
 ---
 
@@ -2962,6 +3262,11 @@ type StringList = string[]
 - Non-streaming: `Vec<String>`
 - Streaming: `Vec<String>`
 
+### Kotlin
+
+- Non-streaming: `List<String>`
+- Streaming: `List<String>`
+
 ---
 
 ## type_alias_int_map
@@ -2992,6 +3297,11 @@ type IntMap = map<string, int>
 - Non-streaming: `std::collections::HashMap<String, i64>`
 - Streaming: `std::collections::HashMap<String, i64>`
 
+### Kotlin
+
+- Non-streaming: `Map<String, Long>`
+- Streaming: `Map<String, Long>`
+
 ---
 
 ## type_alias_maybe_int
@@ -3021,6 +3331,11 @@ type MaybeInt = int?
 
 - Non-streaming: `Option<i64>`
 - Streaming: `Option<i64>`
+
+### Kotlin
+
+- Non-streaming: `Long?`
+- Streaming: `Long?`
 
 ---
 
@@ -3054,6 +3369,11 @@ class T { f map<string, int>[] }
 - Non-streaming: `Vec<std::collections::HashMap<String, i64>>`
 - Streaming: `Vec<std::collections::HashMap<String, i64>>`
 
+### Kotlin
+
+- Non-streaming: `List<Map<String, Long>>`
+- Streaming: `List<Map<String, Long>>`
+
 ---
 
 ## map_of_string_lists
@@ -3084,6 +3404,11 @@ class T { f map<string, string[]> }
 - Non-streaming: `std::collections::HashMap<String, Vec<String>>`
 - Streaming: `std::collections::HashMap<String, Vec<String>>`
 
+### Kotlin
+
+- Non-streaming: `Map<String, List<String>>`
+- Streaming: `Map<String, List<String>>`
+
 ---
 
 ## list_of_optionals
@@ -3113,6 +3438,11 @@ class T { f (string?)[] }
 
 - Non-streaming: `Vec<Option<String>>`
 - Streaming: `Vec<Option<String>>`
+
+### Kotlin
+
+- Non-streaming: `List<String?>`
+- Streaming: `List<String?>`
 
 ---
 
@@ -3148,6 +3478,11 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 - Non-streaming: `Checked<i64>`
 - Streaming: `baml::StreamState<Option<types::Checked<i64>>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `StreamState<types.Checked<Long>?>`
+
 ---
 
 ## checked_stream_state
@@ -3181,6 +3516,11 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 
 - Non-streaming: `Checked<i64>`
 - Streaming: `baml::StreamState<Option<types::Checked<i64>>>`
+
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `StreamState<types.Checked<Long>?>`
 
 ---
 
@@ -3216,6 +3556,11 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 - Non-streaming: `Checked<i64>`
 - Streaming: `baml::StreamState<Option<types::Checked<i64>>>`
 
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `StreamState<types.Checked<Long>?>`
+
 ---
 
 ## checked_stream_state_paren
@@ -3249,6 +3594,11 @@ StreamState[typing.Optional[types.Checked[int, typing_extensions.Literal['positi
 
 - Non-streaming: `Checked<i64>`
 - Streaming: `baml::StreamState<Option<types::Checked<i64>>>`
+
+### Kotlin
+
+- Non-streaming: `Checked<Long>`
+- Streaming: `StreamState<types.Checked<Long>?>`
 
 ---
 
@@ -3295,6 +3645,11 @@ class Task {
 - Non-streaming: `i64`
 - Streaming: `Option<i64>`
 
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long?`
+
 ---
 
 ## realistic_task_title
@@ -3337,6 +3692,11 @@ class Task {
 
 - Non-streaming: `String`
 - Streaming: `baml::StreamState<Option<String>>`
+
+### Kotlin
+
+- Non-streaming: `String`
+- Streaming: `StreamState<String?>`
 
 ---
 
@@ -3381,6 +3741,11 @@ class Task {
 - Non-streaming: `Option<String>`
 - Streaming: `Option<String>`
 
+### Kotlin
+
+- Non-streaming: `String?`
+- Streaming: `String?`
+
 ---
 
 ## realistic_task_priority
@@ -3423,6 +3788,11 @@ class Task {
 
 - Non-streaming: `Priority`
 - Streaming: `Option<types::Priority>`
+
+### Kotlin
+
+- Non-streaming: `Priority`
+- Streaming: `types.Priority?`
 
 ---
 
@@ -3467,6 +3837,11 @@ class Task {
 - Non-streaming: `Vec<String>`
 - Streaming: `Vec<String>`
 
+### Kotlin
+
+- Non-streaming: `List<String>`
+- Streaming: `List<String>`
+
 ---
 
 ## realistic_task_metadata
@@ -3510,6 +3885,11 @@ class Task {
 - Non-streaming: `Option<std::collections::HashMap<String, String>>`
 - Streaming: `Option<std::collections::HashMap<String, String>>`
 
+### Kotlin
+
+- Non-streaming: `Map<String, String>?`
+- Streaming: `Map<String, String>?`
+
 ---
 
 ## realistic_task_completed
@@ -3552,6 +3932,11 @@ class Task {
 
 - Non-streaming: `bool`
 - Streaming: `bool`
+
+### Kotlin
+
+- Non-streaming: `Boolean`
+- Streaming: `Boolean`
 
 ---
 
@@ -3622,6 +4007,11 @@ class T { f Inner }
 - Non-streaming: `Inner`
 - Streaming: `Option<types::Inner>`
 
+### Kotlin
+
+- Non-streaming: `Inner`
+- Streaming: `types.Inner?`
+
 ---
 
 ## block_stream_done_in_list
@@ -3655,6 +4045,11 @@ class T { list Inner[] }
 
 - Non-streaming: `Vec<Inner>`
 - Streaming: `Vec<types::Inner>`
+
+### Kotlin
+
+- Non-streaming: `List<Inner>`
+- Streaming: `List<types.Inner>`
 
 ---
 
@@ -3695,6 +4090,11 @@ class T {
 - Non-streaming: `Middle`
 - Streaming: `Option<Middle>`
 
+### Kotlin
+
+- Non-streaming: `Middle`
+- Streaming: `Middle?`
+
 ---
 
 ## nested_block_stream_done_inner
@@ -3734,6 +4134,11 @@ class T {
 - Non-streaming: `Inner`
 - Streaming: `Option<types::Inner>`
 
+### Kotlin
+
+- Non-streaming: `Inner`
+- Streaming: `types.Inner?`
+
 ---
 
 ## block_stream_done_field_access
@@ -3769,5 +4174,10 @@ class T {
 
 - Non-streaming: `i64`
 - Streaming: `i64`
+
+### Kotlin
+
+- Non-streaming: `Long`
+- Streaming: `Long`
 
 ---

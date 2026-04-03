@@ -166,6 +166,23 @@ Declares the JNA interface to the Rust `bridge_cffi` dynamic library.
 
   - **`suspend fun callFunctionParse(name, args): Any?`** — Same pattern as `callFunction`, for parse-mode calls.
 
+#### `BamlStream.kt` — Typed Stream Wrapper
+
+- **`BamlStream<PartialT, FinalT>`** — Generic wrapper around the raw `Flow<BamlResult>` from `streamFunction()`.
+  - `partials: Flow<PartialT>` — Typed partial results as they arrive from the LLM. Filters out the final result.
+  - `getFinalResponse(): FinalT` — Returns the final typed result after the stream completes. Must be called after collecting `partials`.
+  - Constructor takes cast lambdas (`castPartial`, `castFinal`) that generated code provides for type-safe conversion from `Any?`.
+  - Error propagation: errors in the raw flow are re-thrown when collecting partials.
+
+#### `Media.kt` — Media Types
+
+- **`BamlMedia`** — Sealed base class for all media types. Implements `BamlSerializable`.
+  - Properties: `mediaType`, `mimeType`, `url`, `base64Data`, `isUrl`, `isBase64`.
+  - `encode()` produces a `HostClassValue` with media fields (`media_type`, `mime_type`, `url`/`base64`).
+- **`BamlImage`** / **`BamlAudio`** / **`BamlPdf`** / **`BamlVideo`** — Concrete media types.
+  - Factory methods: `fromUrl(url, mimeType?)`, `fromBase64(base64, mimeType?)`.
+  - Used as function arguments for multi-modal LLM calls.
+
 ## Protobuf Wire Format
 
 ### Inbound (Kotlin → Rust)
@@ -195,6 +212,15 @@ cd engine/language_client_kotlin
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home
 ```
 
+### Interactive demo
+
+```bash
+# Shows the full SDK pipeline in action with live output:
+# function calls, streaming, concurrency, error handling
+export OPENROUTER_API_KEY=sk-or-v1-...
+./gradlew demo
+```
+
 ### Unit + codegen tests (no dylib, no API key needed)
 
 ```bash
@@ -212,17 +238,17 @@ export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home
 cargo build -p bridge_cffi --release --manifest-path ../../baml_language/Cargo.toml
 
 # Step 2: Run integration tests (dylib is auto-detected, no env var needed)
-./gradlew clean test --tests "com.boundaryml.baml.integration.*"
+./gradlew clean test --tests "com.boundaryml.baml.integration.**"
 
 # Some integration tests also need an API key:
 export OPENROUTER_API_KEY=sk-or-v1-...
-./gradlew clean test --tests "com.boundaryml.baml.integration.*"
+./gradlew clean test --tests "com.boundaryml.baml.integration.**"
 ```
 
 ### All tests at once
 
 ```bash
-# Integration tests skip gracefully if dylib / API key are not available
+# Everything (integration tests skip gracefully if dylib / API key are not available)
 ./gradlew clean test
 ```
 
@@ -244,29 +270,88 @@ Integration tests (`com.boundaryml.baml.integration.*`) verify that the full SDK
 
 This approach ensures integration tests are stable regardless of LLM output variability, model availability, or quota limits. The tests use `assumeTrue` guards to skip gracefully when the dylib or API key is unavailable.
 
-### BAML test sources
+### BAML test projects
 
-BAML definitions live in `src/test/resources/baml/` as standalone `.baml` files, separate from the Kotlin test code. Tests compose the files they need via `BamlTestResources.load()`:
+Each integration test is a self-contained BAML project — the `.kt` test file lives alongside its `baml_src/` directory, just like a real BAML project:
 
 ```
-src/test/resources/baml/
-├── openrouter_client.baml   # Shared OpenRouter client (real LLM calls)
-├── fake_client.baml         # Fake client (no API key needed)
-├── greeting_functions.baml  # GetGreeting, Translate
-├── echo_function.baml       # Echo
-├── story_function.baml      # TellStory
-└── extract_function.baml    # ExtractName
+src/test/kotlin/.../integration/
+├── BamlTestResources.kt             # BamlProject.load() helper
+├── runtime_test/
+│   ├── baml_src/
+│   │   ├── clients.baml             # Fake client (no API key)
+│   │   └── functions.baml           # ExtractName
+│   └── RuntimeTest.kt
+├── function_call_test/
+│   ├── baml_src/
+│   │   ├── clients.baml             # OpenRouter client
+│   │   └── functions.baml           # GetGreeting, Translate
+│   └── FunctionCallTest.kt
+├── streaming_test/
+│   ├── baml_src/
+│   │   ├── clients.baml             # OpenRouter client
+│   │   └── functions.baml           # TellStory
+│   └── StreamingTest.kt
+├── error_handling_test/
+│   ├── baml_src/
+│   │   ├── clients.baml             # Fake client (no API key)
+│   │   └── functions.baml           # Echo
+│   └── ErrorHandlingTest.kt
+├── concurrency_test/
+│   ├── baml_src/
+│   │   ├── clients.baml             # OpenRouter client
+│   │   └── functions.baml           # Echo
+│   └── ConcurrencyTest.kt
+└── structured_output_test/
+    ├── baml_src/
+    │   ├── clients.baml             # OpenRouter client
+    │   ├── types.baml               # Person, Sentiment, Receipt
+    │   └── functions.baml           # ExtractPerson, ClassifySentiment, ExtractReceipt
+    └── StructuredOutputTest.kt
 ```
 
-Each integration test loads the files it needs:
+Each test loads its own project — `BamlProject.load(this::class)` resolves `baml_src/` relative to the test's package directory:
 
 ```kotlin
-// LLM test: real client + functions
-val srcFiles = BamlTestResources.load("openrouter_client.baml", "greeting_functions.baml")
-
-// Error test: fake client + functions (no API key needed)
-val srcFiles = BamlTestResources.load("fake_client.baml", "echo_function.baml")
+val project = BamlProject.load(this::class)
+val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
 ```
+
+### Test inventory
+
+**Unit tests** (`com.boundaryml.baml.unit.*`) — no dylib, no API key:
+
+| Class | Tests | What it covers |
+|-------|-------|----------------|
+| `EncodeTest` | 22 | Kotlin → protobuf encoding (primitives, collections, classes, enums, function args) |
+| `DecodeTest` | 22 | Protobuf → Kotlin decoding (all 14 CFFIValueHolder variants, type dispatch) |
+| `RoundTripTest` | 15 | Encode then decode for each type (primitives, collections, edge cases) |
+| `CallbackRoutingTest` | 8 | Callback dispatch, streaming, error routing, concurrency, unknown call_id |
+| `HandleTest` | 7 | Handle lifecycle: create, close, clone, double-close, AutoCloseable |
+| `MediaTest` | 13 | Media types: construction, encoding, field correctness, Serde integration |
+| `BamlStreamTest` | 5 | Typed stream: partials collection, final capture, error propagation |
+
+**Codegen tests** (`com.boundaryml.baml.codegen.*`) — no dylib, no API key:
+
+| Class | Tests | What it covers |
+|-------|-------|----------------|
+| `GeneratedClassTest` | 6 | Data class encode/decode, nested classes, optional fields |
+| `GeneratedEnumTest` | 5 | Enum encode/decode, unknown variant fallback |
+| `GeneratedUnionTest` | 5 | Sealed class decode, optional unions, dynamic fallback |
+| `GeneratedFunctionTest` | 6 | Function arg encoding, optional params, call options |
+
+**Integration tests** (`com.boundaryml.baml.integration.**`) — require dylib + API key:
+
+| Class | Tests | What it covers |
+|-------|-------|----------------|
+| `RuntimeTest` | 4 | Dylib loading, version, runtime create/destroy |
+| `FunctionCallTest` | 2 | String-returning function calls |
+| `StreamingTest` | 1 | Streaming Flow emission |
+| `ErrorHandlingTest` | 3 | Non-existent function, bad args, runtime errors |
+| `ConcurrencyTest` | 1 | 10 concurrent coroutines calling different functions |
+| `StructuredOutputTest` | 4 | Class/enum return types decoded via TypeMap, dynamic fallback |
+
+**Total: 122 unit/codegen + 15 integration = 137 tests**
 
 ### Running specific tests
 
@@ -276,6 +361,15 @@ val srcFiles = BamlTestResources.load("fake_client.baml", "echo_function.baml")
 
 # Single test method
 ./gradlew clean test --tests "com.boundaryml.baml.unit.EncodeTest.encode string"
+
+# All media tests
+./gradlew clean test --tests "com.boundaryml.baml.unit.MediaTest"
+
+# All stream tests
+./gradlew clean test --tests "com.boundaryml.baml.unit.BamlStreamTest"
+
+# Structured output integration tests
+./gradlew clean test --tests "com.boundaryml.baml.integration.structured_output_test.StructuredOutputTest"
 ```
 
 ### Gradle tips
@@ -288,6 +382,74 @@ val srcFiles = BamlTestResources.load("fake_client.baml", "echo_function.baml")
 | `./gradlew test` | Run tests, but Gradle skips if it thinks nothing changed |
 
 Use `./gradlew clean test` when in doubt — it prevents stale builds from affecting results.
+
+## Code Generator (Rust)
+
+The Kotlin code generator lives at `engine/generators/languages/kotlin/`. It converts BAML IR (intermediate representation) into Kotlin source files — data classes, enum classes, sealed classes, and typed function wrappers that call into the SDK.
+
+### Generator architecture
+
+```
+.baml files → compiler → IR → generators-kotlin → .kt files
+                                    │
+                                    ├── types/Classes.kt     (data classes)
+                                    ├── types/Enums.kt       (enum classes)
+                                    ├── types/Unions.kt      (sealed classes)
+                                    ├── types/TypeAliases.kt (typealias)
+                                    ├── stream_types/...     (streaming variants)
+                                    ├── BamlFunctions.kt     (suspend fun wrappers)
+                                    ├── BamlStreamFunctions.kt (Flow wrappers)
+                                    ├── BamlTypeMap.kt       (type registry)
+                                    ├── BamlSourceMap.kt     (embedded .baml sources)
+                                    └── BamlRuntimeInit.kt   (runtime bootstrap)
+```
+
+### Running codegen tests
+
+All commands run from `engine/` (not `engine/language_client_kotlin/`).
+
+```bash
+# Check the generator compiles (fast, ~5s)
+cargo check -p generators-kotlin
+
+# Check the full generators pipeline compiles
+cargo check -p generators-kotlin -p generators-lib
+
+# Run unit tests (IR-to-Kotlin type conversion, class/enum/union serialization)
+cargo test -p generators-kotlin --lib
+```
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `engine/generators/languages/kotlin/Cargo.toml` | Crate config |
+| `src/lib.rs` | `LanguageFeatures` implementation, file generation |
+| `src/type.rs` | `TypeKotlin` enum — maps BAML types to Kotlin types |
+| `src/generated_types.rs` | Askama template structs for classes, enums, unions |
+| `src/functions.rs` | Function wrapper template structs |
+| `src/ir_to_kotlin/` | IR-to-Kotlin conversion (classes, enums, functions, unions, type_aliases) |
+| `src/_templates/*.kt.j2` | Jinja2 templates for generated Kotlin code |
+| `src/package.rs` | Package-aware type resolution |
+
+### Registration points
+
+The generator is registered in 4 places:
+
+1. **`engine/baml-lib/baml-types/src/generator.rs`** — `GeneratorOutputType::Kotlin` enum variant
+2. **`baml_language/crates/baml_compiler_hir/src/generator.rs`** — `"kotlin"` in `VALID_OUTPUT_TYPES`
+3. **`engine/generators/utils/generators_lib/src/lib.rs`** — `Kotlin` dispatch case
+4. **`engine/generators/utils/generators_lib/Cargo.toml`** — `generators-kotlin` dependency
+
+### Using in .baml files
+
+```baml
+generator kotlin {
+    output_type "kotlin"
+    output_dir "../src/main/kotlin/baml_client"
+    default_client_mode "async"
+}
+```
 
 ## Design Decisions
 

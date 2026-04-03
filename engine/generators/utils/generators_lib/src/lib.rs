@@ -51,6 +51,11 @@ pub fn generate_sdk(
             let features = RustLanguageFeatures;
             features.generate_sdk(ir, gen)?
         }
+        GeneratorOutputType::Kotlin => {
+            use generators_kotlin::KotlinLanguageFeatures;
+            let features = KotlinLanguageFeatures;
+            features.generate_sdk(ir, gen)?
+        }
     };
 
     // Run on_generate commands
