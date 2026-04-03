@@ -13,6 +13,7 @@ class ErrorHandlingTest {
 
     companion object {
         private var ffiAvailable = false
+        private lateinit var project: BamlProject
 
         @BeforeAll
         @JvmStatic
@@ -22,6 +23,9 @@ class ErrorHandlingTest {
                 true
             } catch (_: Throwable) {
                 false
+            }
+            if (ffiAvailable) {
+                project = BamlProject.load(ErrorHandlingTest::class)
             }
         }
     }
@@ -33,7 +37,7 @@ class ErrorHandlingTest {
     @Test
     fun `call non-existent function throws`() = runBlocking {
         requireFfi()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         val args = Serde.encodeArgs(mapOf("input" to "test"))
@@ -48,7 +52,7 @@ class ErrorHandlingTest {
     @Test
     fun `invalid protobuf args throws`() = runBlocking {
         requireFfi()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         val badArgs = byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x00, 0x01)

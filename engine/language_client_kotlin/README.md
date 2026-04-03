@@ -233,22 +233,26 @@ export OPENROUTER_API_KEY=sk-or-v1-...
 
 ### Integration tests
 
+Integration tests make real LLM calls through the FFI boundary. They require:
+1. The `bridge_cffi` dylib (auto-detected at `../../baml_language/target/release/`)
+2. An API key in `.env` or environment
+
 ```bash
-# Step 1: Build the bridge_cffi dylib (one-time, ~1 min)
+# One-time: build the dylib (~1 min)
 cargo build -p bridge_cffi --release --manifest-path ../../baml_language/Cargo.toml
 
-# Step 2: Run integration tests (dylib is auto-detected, no env var needed)
-./gradlew clean test --tests "com.boundaryml.baml.integration.**"
+# The .env file in this directory is auto-loaded by Gradle:
+#   OPENROUTER_API_KEY=sk-or-v1-...
 
-# Some integration tests also need an API key:
-export OPENROUTER_API_KEY=sk-or-v1-...
+# Run integration tests only
 ./gradlew clean test --tests "com.boundaryml.baml.integration.**"
 ```
 
 ### All tests at once
 
 ```bash
-# Everything (integration tests skip gracefully if dylib / API key are not available)
+# Everything: 106 unit/codegen + 14 integration = 120 tests
+# Dylib auto-detected, API key from .env
 ./gradlew clean test
 ```
 
@@ -373,7 +377,7 @@ These import **real generated types** from `codegen/generated/` (produced by `ge
 | `ConcurrencyTest` | 1 | 10 concurrent coroutines calling different functions |
 | `StructuredOutputTest` | 4 | Class/enum return types decoded via TypeMap, dynamic fallback |
 
-**Total: 106 unit/codegen + 14 integration = 120 tests**
+**Total: 106 unit/codegen + 14 integration = 120 tests (all passing)**
 
 ### Running specific tests
 

@@ -16,6 +16,8 @@ class StructuredOutputTest {
         private var ffiAvailable = false
         private var hasApiKey = false
 
+        private lateinit var project: BamlProject
+
         @BeforeAll
         @JvmStatic
         fun setup() {
@@ -26,6 +28,9 @@ class StructuredOutputTest {
                 false
             }
             hasApiKey = System.getenv("OPENROUTER_API_KEY")?.isNotEmpty() == true
+            if (ffiAvailable) {
+                project = BamlProject.load(StructuredOutputTest::class)
+            }
         }
     }
 
@@ -77,7 +82,7 @@ class StructuredOutputTest {
     @Test
     fun `extract person returns typed class`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         CallbackManager.typeMap = createTypeMap()
@@ -101,7 +106,7 @@ class StructuredOutputTest {
     @Test
     fun `classify sentiment returns enum`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         CallbackManager.typeMap = createTypeMap()
@@ -129,7 +134,7 @@ class StructuredOutputTest {
     @Test
     fun `extract receipt returns typed class with list field`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         CallbackManager.typeMap = createTypeMap()
@@ -154,7 +159,7 @@ class StructuredOutputTest {
     @Test
     fun `dynamic class fallback when no deserializer registered`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         CallbackManager.typeMap = BamlTypeMap()

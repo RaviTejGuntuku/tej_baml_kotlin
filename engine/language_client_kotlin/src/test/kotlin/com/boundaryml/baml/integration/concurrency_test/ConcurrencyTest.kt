@@ -16,6 +16,8 @@ class ConcurrencyTest {
         private var ffiAvailable = false
         private var hasApiKey = false
 
+        private lateinit var project: BamlProject
+
         @BeforeAll
         @JvmStatic
         fun setup() {
@@ -26,6 +28,9 @@ class ConcurrencyTest {
                 false
             }
             hasApiKey = System.getenv("OPENROUTER_API_KEY")?.isNotEmpty() == true
+            if (ffiAvailable) {
+                project = BamlProject.load(ConcurrencyTest::class)
+            }
         }
     }
 
@@ -37,7 +42,7 @@ class ConcurrencyTest {
     @Test
     fun `concurrent calls return correct results`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         val count = 10

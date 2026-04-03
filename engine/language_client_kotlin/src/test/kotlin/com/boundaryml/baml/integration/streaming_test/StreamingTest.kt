@@ -15,6 +15,8 @@ class StreamingTest {
         private var ffiAvailable = false
         private var hasApiKey = false
 
+        private lateinit var project: BamlProject
+
         @BeforeAll
         @JvmStatic
         fun setup() {
@@ -25,6 +27,9 @@ class StreamingTest {
                 false
             }
             hasApiKey = System.getenv("OPENROUTER_API_KEY")?.isNotEmpty() == true
+            if (ffiAvailable) {
+                project = BamlProject.load(StreamingTest::class)
+            }
         }
     }
 
@@ -36,7 +41,7 @@ class StreamingTest {
     @Test
     fun `stream function collects partials and final`() = runBlocking {
         requireFullSetup()
-        val project = BamlProject.load(this::class)
+        val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
         val client = BamlClient(runtime)
         val args = Serde.encodeArgs(mapOf("topic" to "a cat"))
