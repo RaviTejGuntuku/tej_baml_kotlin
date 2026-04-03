@@ -21,6 +21,7 @@ data class Address(
     override fun bamlTypeName(): String = "Address"
 
     companion object : BamlDeserializable<Address> {
+        @Suppress("UNCHECKED_CAST")
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): Address {
             return Address(
                 street = fields["street"] as String?,city = fields["city"] as String?,zip = fields["zip"] as String?
@@ -45,6 +46,7 @@ data class Person(
     override fun bamlTypeName(): String = "Person"
 
     companion object : BamlDeserializable<Person> {
+        @Suppress("UNCHECKED_CAST")
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): Person {
             return Person(
                 name = fields["name"] as String?,age = fields["age"] as Long?,email = fields["email"] as String?
@@ -69,6 +71,7 @@ data class Receipt(
     override fun bamlTypeName(): String = "Receipt"
 
     companion object : BamlDeserializable<Receipt> {
+        @Suppress("UNCHECKED_CAST")
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): Receipt {
             return Receipt(
                 store = fields["store"] as String?,items = fields["items"] as List<String>,total = fields["total"] as Double?
@@ -92,6 +95,7 @@ data class SearchResult(
     override fun bamlTypeName(): String = "SearchResult"
 
     companion object : BamlDeserializable<SearchResult> {
+        @Suppress("UNCHECKED_CAST")
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): SearchResult {
             return SearchResult(
                 query = fields["query"] as String?,result = fields["result"] as baml_client.types.Union2IntOrString?

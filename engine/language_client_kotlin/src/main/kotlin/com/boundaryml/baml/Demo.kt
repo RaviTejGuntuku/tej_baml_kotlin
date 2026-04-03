@@ -167,7 +167,7 @@ fun main() = runBlocking {
                     println("    FINAL:  ${result.data}")
                 }
                 result.error != null -> {
-                    println("    ERROR:  ${result.error!!.message}")
+                    println("    ERROR:  ${result.error.message}")
                 }
             }
         }

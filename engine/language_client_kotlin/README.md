@@ -426,45 +426,48 @@ The Kotlin code generator lives at `engine/generators/languages/kotlin/`. It con
                                     └── BamlRuntimeInit.kt   (runtime bootstrap)
 ```
 
-### Running codegen tests
+### Testing the codegen — three layers
 
-All `cargo` commands run from `engine/` (not `engine/language_client_kotlin/`).
+Codegen correctness is validated at three levels. Each catches a different class of bug.
 
-```bash
-# Check the generator compiles (fast, ~5s)
-cargo check -p generators-kotlin
-
-# Run Rust-side unit tests (159 tests: type serialization, IR conversion, template rendering)
-cargo test -p generators-kotlin --lib
-```
-
-### Full codegen validation workflow
-
-After any change to the codegen templates or IR-to-Kotlin conversion, run this sequence to catch all classes of bugs:
+**Layer 1: Rust-side type tests** (159 tests, ~5s)
 
 ```bash
 cd engine
-
-# Step 1: Rust-side tests (type strings, template fragments — fast, ~5s)
 cargo test -p generators-kotlin --lib
-
-# Step 2: Regenerate Kotlin fixture files from the BAML test fixture
-cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
-
-# Step 3: Verify the generated code actually compiles as Kotlin
-cd language_client_kotlin
-./gradlew compileTestKotlin
-
-# Step 4: Verify the generated types encode/decode correctly through the SDK
-./gradlew cleanTest test --tests "com.boundaryml.baml.codegen.*"
-
-# Step 5: Run all unit tests to check nothing is broken
-./gradlew cleanTest test --tests "com.boundaryml.baml.unit.*" --tests "com.boundaryml.baml.codegen.*"
 ```
 
-Steps 1-2 are Rust-only. Steps 3-5 require Java 21 + Gradle.
+Verifies that BAML types map to the correct Kotlin type strings (e.g., `int` → `Long`, `string[]` → `List<String>`, `int | string` → `Union2IntOrString`). Also checks that rendered templates contain expected code fragments. These are string-based — they do **not** compile the output, so they cannot catch import path errors, interface mismatches, or type shadowing.
 
-**Why all steps matter:** The Rust tests (Step 1) check string fragments — they verify type names and template snippets are correct, but they don't compile the output. Steps 3-5 compile and run the generated Kotlin, catching bugs like wrong import paths, package qualification errors, interface signature mismatches, and type shadowing that string-based checks miss.
+**Layer 2: Kotlin compilation** (catches import/signature/shadowing bugs)
+
+```bash
+cd engine
+cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture
+cd language_client_kotlin
+./gradlew compileTestKotlin
+```
+
+Generates real `.kt` files from a BAML fixture and feeds them to the Kotlin compiler. If a template produces invalid Kotlin (wrong import path, missing `override`, type name collision), this catches it. The 7 codegen bugs fixed in this repo were all invisible to Layer 1 but caught here.
+
+**Layer 3: Kotlin runtime tests** (105 tests, verifies encode/decode correctness)
+
+```bash
+cd engine/language_client_kotlin
+./gradlew cleanTest test --tests "com.boundaryml.baml.codegen.*" --tests "com.boundaryml.baml.unit.*"
+```
+
+The codegen tests (`codegen.*`) import the real generated types and verify they encode/decode correctly through the SDK's Serde layer. The unit tests (`unit.*`) verify the SDK internals independently. No dylib or API key needed.
+
+**All three in one shot** (recommended after any codegen change):
+
+```bash
+cd engine
+cargo test -p generators-kotlin --lib && \
+cargo test -p generators-kotlin write_codegen_fixture -- --ignored --nocapture && \
+cd language_client_kotlin && \
+./gradlew cleanTest test --tests "com.boundaryml.baml.unit.*" --tests "com.boundaryml.baml.codegen.*"
+```
 
 ### Key files
 
