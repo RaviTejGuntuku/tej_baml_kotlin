@@ -2,24 +2,40 @@
 
 Kotlin/JVM SDK for calling [BAML](https://docs.boundaryml.com/) functions with full type safety. Supports desktop JVM and Android.
 
-## Getting Started
+## Installation
 
-### Step 1: Add the dependency
+Add to your `build.gradle.kts`:
 
 ```kotlin
-// build.gradle.kts
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation("com.boundaryml:baml-kotlin:0.1.0")
+    implementation("io.github.ravitejguntuku:baml-kotlin:0.1.0")
 }
 ```
 
-### Step 2: Define your BAML types and functions
+You also need the BAML CLI to generate Kotlin code from your `.baml` files:
 
-Create `.baml` files in your project:
+```bash
+# macOS
+brew install boundaryml/baml/baml
+
+# or via npm
+npm install -g @boundaryml/baml
+```
+
+## Quickstart
+
+### 1. Create a BAML project
+
+```bash
+mkdir my-project && cd my-project
+mkdir baml_src
+```
+
+Create your BAML files:
 
 ```baml
 // baml_src/clients.baml
@@ -30,10 +46,15 @@ client<llm> MyClient {
         api_key env.OPENAI_API_KEY
     }
 }
+
+generator kotlin {
+    output_type "kotlin"
+    output_dir "../src/main/kotlin/baml_client"
+}
 ```
 
 ```baml
-// baml_src/types.baml
+// baml_src/functions.baml
 class Person {
     name  string
     age   int
@@ -45,13 +66,15 @@ enum Sentiment {
     NEGATIVE
     NEUTRAL
 }
-```
 
-```baml
-// baml_src/functions.baml
 function ExtractPerson(text: string) -> Person {
     client MyClient
-    prompt #"Extract person info from: {{ text }}"#
+    prompt #"
+        Extract the person's info from this text:
+        {{ text }}
+
+        Return their name, age, and email (if present).
+    "#
 }
 
 function ClassifySentiment(text: string) -> Sentiment {
@@ -60,69 +83,75 @@ function ClassifySentiment(text: string) -> Sentiment {
 }
 ```
 
-### Step 3: Generate Kotlin code
-
-Add a generator block to any `.baml` file:
-
-```baml
-generator kotlin {
-    output_type "kotlin"
-    output_dir "../src/main/kotlin/baml_client"
-}
-```
-
-Run the code generator:
+### 2. Generate Kotlin code
 
 ```bash
 baml-cli generate
 ```
 
-This produces a `baml_client/` directory containing:
-- **Data classes** (`Person`), **enum classes** (`Sentiment`), **sealed classes** (union types)
-- **Function wrappers** — typed `suspend fun` for each BAML function
-- **Stream wrappers** — `Flow`-based streaming variants
-- **Type registry** — maps BAML type names to Kotlin classes for deserialization
+This produces `src/main/kotlin/baml_client/` with typed data classes, enums, function wrappers, and a type registry — all generated from your `.baml` definitions.
 
-### Step 4: Call BAML functions from Kotlin
+### 3. Use in your app
 
 ```kotlin
 import baml_client.*
 import com.boundaryml.baml.*
 
-// Initialize (once, at app startup)
-BamlFfi.load()
-val runtime = BamlRuntime.create(
-    rootPath = ".",
-    srcFiles = BamlSourceMap.files,    // generated
-    typeMap = BamlTypeMap.create()      // generated
-)
-val b = BamlFunctions(BamlClient(runtime))
+fun main() = runBlocking {
+    // Initialize (once at startup)
+    BamlFfi.load()
+    val runtime = BamlRuntime.create(
+        rootPath = ".",
+        srcFiles = BamlSourceMap.files,
+        typeMap = BamlTypeMap.create()
+    )
+    val b = BamlFunctions(BamlClient(runtime))
 
-// Call a function — returns typed Person
-val person: Person = b.ExtractPerson("John is 30, john@example.com")
-println(person.name)   // "John"
-println(person.email)  // "john@example.com"
+    // Call a function — returns a typed Person object
+    val person = b.ExtractPerson("John is 30, john@example.com")
+    println(person.name)   // "John"
+    println(person.age)    // 30
+    println(person.email)  // "john@example.com"
 
-// Classify sentiment — returns typed enum
-val sentiment: Sentiment = b.ClassifySentiment("I love this product!")
-println(sentiment)     // POSITIVE
+    // Returns a typed enum
+    val sentiment = b.ClassifySentiment("I love this product!")
+    println(sentiment)     // POSITIVE
 
-// Stream a function — returns Flow with partial results
-val flow = BamlStreamFunctions(BamlClient(runtime))
-    .ExtractPersonStream("John is 30")
-flow.collect { result ->
+    runtime.destroy()
+}
+```
+
+### 4. Run it
+
+```bash
+export OPENAI_API_KEY=sk-...
+./gradlew run
+```
+
+## More Examples
+
+### Streaming
+
+```kotlin
+val stream = BamlStreamFunctions(BamlClient(runtime))
+    .ExtractPersonStream("John is 30, john@example.com")
+
+stream.collect { result ->
     if (result.hasStreamData) println("Partial: ${result.streamData}")
     if (result.hasData) println("Final: ${result.data}")
 }
+```
 
-// Override which LLM client to use per call
-val result = b.ExtractPerson(
-    "...",
-    options = CallOptions(client = "FastClient")
+### Per-call client override
+
+```kotlin
+val person = b.ExtractPerson(
+    "Alice is 25",
+    options = CallOptions(client = "GPT4Turbo")
 )
 ```
 
-### BAML -> Kotlin type mappings
+### Type mappings
 
 | BAML | Kotlin |
 |------|--------|
@@ -141,111 +170,41 @@ val result = b.ExtractPerson(
 
 ```
 .baml files
-    |  baml-cli generate (Rust code generator)
+    |  baml-cli generate
     v
 Generated Kotlin (baml_client/)
     |  typed suspend funs, data classes, enums, sealed classes
     v
 BAML Kotlin SDK (this library)
-    |  BamlClient: encodes args to protobuf, manages async callbacks
+    |  BamlClient: protobuf encode/decode, async callback management
     v
 FFI boundary
     |  Desktop: JNA        Android: JNI + C bridge
     v
 Rust engine (bridge_cffi)
-    |  tokio runtime -> LLM call -> parse response -> fire callback
+    |  tokio async runtime -> LLM call -> parse -> validate types
     v
 Callback -> Channel -> resumes Kotlin coroutine with typed result
 ```
 
-### Key components
-
-| Component | What it does |
-|-----------|-------------|
-| `BamlFfi` | Loads the native library; auto-detects Android (JNI) vs desktop (JNA) |
-| `BamlRuntime` | Creates/destroys the Rust engine instance from BAML source files |
-| `BamlClient` | `callFunction` (suspend), `streamFunction` (Flow), `callFunctionParse` |
-| `Serde` | Protobuf encode (Kotlin -> engine) and decode (engine -> typed Kotlin) |
-| `CallbackManager` | Routes async results from Rust threads to Kotlin coroutines via `Channel` |
-| `TypeMap` | Registry mapping BAML type names to Kotlin `KClass` + deserializer |
+The SDK communicates with a Rust runtime engine via FFI. On desktop JVM, it uses JNA; on Android, it uses JNI with a C bridge layer. Function arguments are protobuf-encoded, sent across the FFI boundary, and results are delivered asynchronously via callbacks that resume Kotlin coroutines.
 
 ### Features
 
-- Async function calls via Kotlin coroutines
+- Async function calls via Kotlin coroutines (`suspend fun`)
 - Streaming via `Flow<BamlResult>` with partial results
-- Structured output: classes, enums, unions, nested types, optional fields, lists, maps
+- Structured output: classes, enums, unions, nested types, optionals, lists, maps
 - Per-call client override (`CallOptions`)
 - Parse mode (raw LLM text -> typed result)
-- Cancellation propagation (coroutine cancel -> Rust `cancel_function_call`)
+- Cancellation propagation to the Rust engine
 - Media types: `BamlImage`, `BamlAudio`, `BamlPdf`, `BamlVideo`
-
-## Tests
-
-119 tests across unit (82), codegen (22), and integration (15). See [TESTS.md](TESTS.md) for full details.
-
-```bash
-./gradlew clean test                                           # all 119
-./gradlew test --tests "com.boundaryml.baml.unit.*"            # unit only
-./gradlew test --tests "com.boundaryml.baml.codegen.*"         # codegen only
-./gradlew test --tests "com.boundaryml.baml.integration.**"    # integration (needs dylib + API key)
-```
-
-## Building from Source
-
-### Prerequisites
-
-- Java 21+
-- Rust toolchain
-
-### Build the native library
-
-```bash
-cd baml_language
-cargo build -p bridge_cffi --release
-```
-
-### Run the SDK tests
-
-```bash
-cd engine/language_client_kotlin
-./gradlew clean test
-```
-
-### Publish to Maven Local (for local development)
-
-```bash
-./gradlew publishToMavenLocal
-# -> ~/.m2/repository/com/boundaryml/baml-kotlin/0.1.0-SNAPSHOT/
-```
 
 ## Android
 
-Android requires JNI instead of JNA. The SDK auto-detects Android at runtime.
-
-### 1. Cross-compile the Rust library
-
-```bash
-cd baml_language
-cargo build -p bridge_cffi --release --target aarch64-linux-android
-```
-
-(NDK toolchain is configured in `.cargo/config.toml`)
-
-### 2. Copy into your Android app
-
-```bash
-mkdir -p app/src/main/jniLibs/arm64-v8a
-cp baml_language/target/aarch64-linux-android/release/libbridge_cffi.so \
-   app/src/main/jniLibs/arm64-v8a/
-
-mkdir -p app/src/main/cpp
-cp engine/language_client_kotlin/jni/baml_jni.c app/src/main/cpp/
-cp engine/language_client_kotlin/jni/CMakeLists.txt app/src/main/cpp/
-```
-
-### 3. Configure your app's build.gradle.kts
+The SDK auto-detects Android at runtime and uses JNI instead of JNA. Setup requires copying the cross-compiled native library and a C JNI bridge into your Android app.
 
 ```kotlin
+// app/build.gradle.kts
 android {
     externalNativeBuild {
         cmake { path = file("src/main/cpp/CMakeLists.txt") }
@@ -256,8 +215,48 @@ android {
 }
 
 dependencies {
-    implementation("com.boundaryml:baml-kotlin:0.1.0") {
+    implementation("io.github.ravitejguntuku:baml-kotlin:0.1.0") {
         exclude(group = "net.java.dev.jna", module = "jna")
     }
 }
+```
+
+See [jni/](jni/) for the C bridge source and CMake config. See the [Building from Source](#building-from-source) section for cross-compilation instructions.
+
+## Tests
+
+119 tests across unit (82), codegen (22), and integration (15). See [TESTS.md](TESTS.md) for details.
+
+```bash
+./gradlew clean test   # all tests
+```
+
+## Building from Source
+
+### Prerequisites
+
+- Java 21+
+- Rust toolchain
+
+### Build + test
+
+```bash
+cd baml_language && cargo build -p bridge_cffi --release
+cd ../engine/language_client_kotlin && ./gradlew clean test
+```
+
+### Cross-compile for Android
+
+```bash
+cd baml_language
+cargo build -p bridge_cffi --release --target aarch64-linux-android
+```
+
+NDK toolchain paths are configured in `.cargo/config.toml`.
+
+### Publish
+
+```bash
+./gradlew publishToMavenLocal                # local development
+./gradlew publishCentralBundle               # Maven Central
 ```

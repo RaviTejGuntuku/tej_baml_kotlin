@@ -18,7 +18,7 @@ val dotenv = file(".env").takeIf { it.exists() }?.readLines()
 fun envOrDotenv(key: String): String =
     System.getenv(key) ?: dotenv[key] ?: ""
 
-group = "com.boundaryml"
+group = "io.github.ravitejguntuku"
 version = "0.1.0"
 
 repositories {
@@ -177,7 +177,7 @@ publishing {
             artifact(sourcesJar)
             artifact(javadocJar)
 
-            groupId = "com.boundaryml"
+            groupId = "io.github.ravitejguntuku"
             artifactId = "baml-kotlin"
             version = project.version.toString()
 
@@ -210,30 +210,73 @@ publishing {
         }
     }
 
-    repositories {
-        maven {
-            name = "OSSRH"
-            val releasesUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            val snapshotsUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsUrl else releasesUrl
-            credentials {
-                username = findProperty("ossrhUsername") as String? ?: System.getenv("OSSRH_USERNAME") ?: ""
-                password = findProperty("ossrhPassword") as String? ?: System.getenv("OSSRH_PASSWORD") ?: ""
-            }
-        }
-    }
 }
 
 signing {
-    // Uses GPG key from gradle.properties or env vars
-    // Required: signing.keyId, signing.password, signing.secretKeyRingFile
-    // Or: ORG_GRADLE_PROJECT_signingKey (env) + ORG_GRADLE_PROJECT_signingPassword (env)
-    val signingKey = findProperty("signingKey") as String? ?: System.getenv("SIGNING_KEY")
-    val signingPassword = findProperty("signingPassword") as String? ?: System.getenv("SIGNING_PASSWORD")
-    if (signingKey != null && signingPassword != null) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-    }
     sign(publishing.publications["maven"])
-    // Only require signing when publishing to OSSRH (not mavenLocal)
-    isRequired = signingKey != null
+    isRequired = findProperty("signing.keyId") != null
+}
+
+// Publish to Maven Central:
+//   ./gradlew publishToMavenLocal   (builds + signs artifacts)
+//   ./gradlew publishCentralBundle  (zips + uploads to Central Portal)
+tasks.register("publishCentralBundle") {
+    group = "publishing"
+    description = "Upload signed artifacts to Maven Central Portal"
+    dependsOn("publishToMavenLocal")
+
+    doLast {
+        val groupPath = project.group.toString().replace('.', '/')
+        val artifactId = "baml-kotlin"
+        val ver = project.version.toString()
+        val homeDir = System.getProperty("user.home")
+        val repoDir = file("$homeDir/.m2/repository/$groupPath/$artifactId/$ver")
+
+        require(repoDir.exists()) { "Local Maven repo not found at $repoDir" }
+
+        // Generate MD5 and SHA1 checksums for all artifacts
+        exec {
+            workingDir(repoDir)
+            commandLine("bash", "-c", """
+                for f in *.jar *.pom *.module *.asc; do
+                    [ -f "${'$'}f" ] || continue
+                    md5 -q "${'$'}f" > "${'$'}f.md5"
+                    shasum -a 1 "${'$'}f" | cut -d' ' -f1 > "${'$'}f.sha1"
+                done
+            """.trimIndent())
+        }
+
+        val bundleZip = layout.buildDirectory.file("central-bundle.zip").get().asFile
+        bundleZip.delete()
+
+        // Create ZIP with correct directory structure
+        ant.withGroovyBuilder {
+            "zip"("destfile" to bundleZip) {
+                "zipfileset"("dir" to repoDir, "prefix" to "$groupPath/$artifactId/$ver") {
+                    "include"("name" to "*.jar")
+                    "include"("name" to "*.pom")
+                    "include"("name" to "*.asc")
+                    "include"("name" to "*.module")
+                    "include"("name" to "*.md5")
+                    "include"("name" to "*.sha1")
+                }
+            }
+        }
+
+        val username = findProperty("ossrhUsername") as String? ?: ""
+        val password = findProperty("ossrhPassword") as String? ?: ""
+
+        // Upload via curl
+        exec {
+            commandLine(
+                "curl", "--fail", "-X", "POST",
+                "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC",
+                "-u", "$username:$password",
+                "-F", "bundle=@${bundleZip.absolutePath}",
+                "-v"
+            )
+        }
+
+        println("\nUploaded to Maven Central! Track status at: https://central.sonatype.com/publishing")
+    }
 }
