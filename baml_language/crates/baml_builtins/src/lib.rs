@@ -843,11 +843,11 @@ pub mod baml_sources {
     /// TODO: This needs to be parametrizable. The stdlib will eventually live on the
     /// user's machine (not baked into the binary), so the consumer (e.g. db.rs) should
     /// be able to pass in a custom stdlib path instead of relying on `CARGO_MANIFEST_DIR`.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
     pub const BUILTINS_CRATE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
-    /// Embedded source for WASM targets (no filesystem access).
-    #[cfg(target_arch = "wasm32")]
+    /// Embedded source for WASM and Android targets (no access to build-machine filesystem).
+    #[cfg(any(target_arch = "wasm32", target_os = "android"))]
     const LLM_EMBEDDED: &str = include_str!("../baml/llm.baml");
 
     /// A builtin BAML source file with its namespace.
@@ -874,7 +874,7 @@ pub mod baml_sources {
         /// On native: reads from disk using `BUILTINS_CRATE_DIR`.
         /// On WASM: returns the embedded source.
         pub fn source(&self) -> String {
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             {
                 let fs_path = std::path::Path::new(BUILTINS_CRATE_DIR).join(self.relative_path);
                 std::fs::read_to_string(&fs_path).unwrap_or_else(|e| {
@@ -885,7 +885,7 @@ pub mod baml_sources {
                     )
                 })
             }
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             {
                 match self.relative_path {
                     "baml/llm.baml" => LLM_EMBEDDED.to_string(),

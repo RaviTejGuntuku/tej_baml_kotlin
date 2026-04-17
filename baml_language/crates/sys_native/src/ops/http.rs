@@ -18,6 +18,21 @@ use crate::registry::REGISTRY;
 /// Creating a client per request is cheap (`reqwest::Client::new()` is just
 /// an `Arc` allocation) and avoids the cross-runtime lifetime issue.
 fn new_http_client() -> reqwest::Client {
+    #[cfg(target_os = "android")]
+    {
+        // On Android, rustls-platform-verifier can't access the system cert store
+        // without JNI initialization. Use bundled Mozilla root certs instead.
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let tls_config = rustls::ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        reqwest::Client::builder()
+            .tls_backend_preconfigured(tls_config)
+            .build()
+            .expect("failed to build HTTP client with bundled certs")
+    }
+    #[cfg(not(target_os = "android"))]
     reqwest::Client::new()
 }
 

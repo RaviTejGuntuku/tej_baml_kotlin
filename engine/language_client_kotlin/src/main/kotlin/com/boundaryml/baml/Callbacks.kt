@@ -2,8 +2,6 @@ package com.boundaryml.baml
 
 import com.boundaryml.baml.cffi.CFFIValueHolder
 import com.boundaryml.baml.cffi.InvocationResponse
-import com.sun.jna.Pointer
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -27,7 +25,7 @@ internal class CallbackEntry(
  * Manages callback registration and routing between the Rust engine and Kotlin coroutines.
  *
  * The Rust engine fires callbacks on its own tokio threads. This class routes those callbacks
- * to the correct Kotlin coroutine via ConcurrentHashMap + Channel/CompletableDeferred.
+ * to the correct Kotlin coroutine via ConcurrentHashMap + Channel.
  */
 object CallbackManager {
     private val callbacks = ConcurrentHashMap<Int, CallbackEntry>()
@@ -76,25 +74,20 @@ object CallbackManager {
     }
 
     /**
-     * The JNA result callback — called from Rust tokio threads.
+     * The result callback — called from Rust tokio threads (via JNA or JNI bridge).
+     * Content is already converted to ByteArray by the native bridge layer.
      */
-    internal val resultCallback = object : ResultCallbackFn {
-        override fun invoke(id: Int, isDone: Int, content: Pointer?, length: Int) {
+    internal val resultCallback = object : NativeResultCallback {
+        override fun invoke(id: Int, isDone: Int, content: ByteArray?) {
             val entry = callbacks[id] ?: return
 
             try {
-                val bytes = if (content != null && length > 0) {
-                    content.getByteArray(0, length)
-                } else {
-                    null
-                }
-
                 if (entry.responseType == RESPONSE_TYPE_OBJECT_HANDLE) {
-                    handleObjectCallback(id, entry, bytes)
+                    handleObjectCallback(id, entry, content)
                     return
                 }
 
-                if (bytes == null) {
+                if (content == null || content.isEmpty()) {
                     safeSend(entry.channel, BamlResult(error = BamlException("Empty result callback")))
                     if (isDone == 1) {
                         safeClose(entry.channel)
@@ -103,7 +96,7 @@ object CallbackManager {
                     return
                 }
 
-                val holder = CFFIValueHolder.parseFrom(bytes)
+                val holder = CFFIValueHolder.parseFrom(content)
                 val decoded = Serde.decodeValue(holder, typeMap)
 
                 val result = if (isDone == 1) {
@@ -131,7 +124,7 @@ object CallbackManager {
      */
     private fun handleObjectCallback(id: Int, entry: CallbackEntry, bytes: ByteArray?) {
         try {
-            if (bytes == null) {
+            if (bytes == null || bytes.isEmpty()) {
                 safeSend(entry.channel, BamlResult(error = BamlException("Empty object callback")))
                 safeClose(entry.channel)
                 callbacks.remove(id)
@@ -171,14 +164,14 @@ object CallbackManager {
     }
 
     /**
-     * The JNA error callback — called from Rust tokio threads.
+     * The error callback — called from Rust tokio threads (via JNA or JNI bridge).
      */
-    internal val errorCallback = object : ResultCallbackFn {
-        override fun invoke(id: Int, isDone: Int, content: Pointer?, length: Int) {
+    internal val errorCallback = object : NativeResultCallback {
+        override fun invoke(id: Int, isDone: Int, content: ByteArray?) {
             val entry = callbacks[id] ?: return
 
-            val errorMessage = if (content != null && length > 0) {
-                String(content.getByteArray(0, length), Charsets.UTF_8)
+            val errorMessage = if (content != null && content.isNotEmpty()) {
+                String(content, Charsets.UTF_8)
             } else {
                 "Unknown error"
             }
@@ -196,9 +189,9 @@ object CallbackManager {
     }
 
     /**
-     * The JNA on-tick callback — called from Rust for streaming progress.
+     * The on-tick callback — called from Rust for streaming progress.
      */
-    internal val onTickCallback = object : OnTickCallbackFn {
+    internal val onTickCallback = object : NativeOnTickCallback {
         override fun invoke(id: Int) {
             // On-tick is used for collector-based streaming in Go.
             // For Kotlin, streaming data arrives via the result callback.
@@ -239,16 +232,12 @@ object CallbackManager {
 
     /** Visible for testing — fire a result callback directly */
     internal fun fireResult(id: Int, isDone: Int, bytes: ByteArray) {
-        val mem = com.sun.jna.Memory(bytes.size.toLong())
-        mem.write(0, bytes, 0, bytes.size)
-        resultCallback.invoke(id, isDone, mem, bytes.size)
+        resultCallback.invoke(id, isDone, bytes)
     }
 
     /** Visible for testing — fire an error callback directly */
     internal fun fireError(id: Int, message: String) {
         val bytes = message.toByteArray(Charsets.UTF_8)
-        val mem = com.sun.jna.Memory(bytes.size.toLong())
-        mem.write(0, bytes, 0, bytes.size)
-        errorCallback.invoke(id, 1, mem, bytes.size)
+        errorCallback.invoke(id, 1, bytes)
     }
 }

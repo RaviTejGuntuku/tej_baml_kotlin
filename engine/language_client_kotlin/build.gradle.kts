@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm") version "1.9.22"
     id("com.google.protobuf") version "0.9.4"
     `maven-publish`
+    signing
 }
 
 // Load .env file if it exists (KEY=VALUE format, one per line)
@@ -18,7 +19,7 @@ fun envOrDotenv(key: String): String =
     System.getenv(key) ?: dotenv[key] ?: ""
 
 group = "com.boundaryml"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 repositories {
     mavenCentral()
@@ -157,10 +158,24 @@ sourceSets.main {
     resources.srcDir(layout.buildDirectory.dir("native-libs"))
 }
 
+// Maven Central requires sources + javadoc JARs
+val sourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(sourceSets.main.get().kotlin)
+    from(sourceSets.main.get().proto)
+}
+
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.named("javadoc"))
+}
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            artifact(sourcesJar)
+            artifact(javadocJar)
 
             groupId = "com.boundaryml"
             artifactId = "baml-kotlin"
@@ -177,7 +192,48 @@ publishing {
                         url.set("https://www.apache.org/licenses/LICENSE-2.0")
                     }
                 }
+
+                developers {
+                    developer {
+                        id.set("boundaryml")
+                        name.set("BoundaryML")
+                        url.set("https://github.com/BoundaryML")
+                    }
+                }
+
+                scm {
+                    url.set("https://github.com/BoundaryML/baml")
+                    connection.set("scm:git:git://github.com/BoundaryML/baml.git")
+                    developerConnection.set("scm:git:ssh://github.com/BoundaryML/baml.git")
+                }
             }
         }
     }
+
+    repositories {
+        maven {
+            name = "OSSRH"
+            val releasesUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            val snapshotsUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsUrl else releasesUrl
+            credentials {
+                username = findProperty("ossrhUsername") as String? ?: System.getenv("OSSRH_USERNAME") ?: ""
+                password = findProperty("ossrhPassword") as String? ?: System.getenv("OSSRH_PASSWORD") ?: ""
+            }
+        }
+    }
+}
+
+signing {
+    // Uses GPG key from gradle.properties or env vars
+    // Required: signing.keyId, signing.password, signing.secretKeyRingFile
+    // Or: ORG_GRADLE_PROJECT_signingKey (env) + ORG_GRADLE_PROJECT_signingPassword (env)
+    val signingKey = findProperty("signingKey") as String? ?: System.getenv("SIGNING_KEY")
+    val signingPassword = findProperty("signingPassword") as String? ?: System.getenv("SIGNING_PASSWORD")
+    if (signingKey != null && signingPassword != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    sign(publishing.publications["maven"])
+    // Only require signing when publishing to OSSRH (not mavenLocal)
+    isRequired = signingKey != null
 }

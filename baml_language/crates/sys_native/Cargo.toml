@@ -20,6 +20,10 @@ indexmap = { workspace = true }
 reqwest = { workspace = true, features = [ "rustls" ], optional = true }
 tokio = { workspace = true, features = [ "sync", "fs", "net", "process", "io-util", "time" ] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+webpki-roots = "0.26"
+rustls = "0.23"
+
 [lints]
 workspace = true
 

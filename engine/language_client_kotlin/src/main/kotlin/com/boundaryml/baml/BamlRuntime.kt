@@ -7,7 +7,7 @@ import com.google.gson.Gson
  * Wraps the Rust bridge_cffi library initialization and runtime creation.
  */
 class BamlRuntime private constructor(
-    internal val runtimePtr: com.sun.jna.Pointer
+    internal val runtimePtr: Long
 ) {
     companion object {
         private val gson = Gson()
@@ -18,12 +18,8 @@ class BamlRuntime private constructor(
          */
         fun version(): String {
             val ffi = BamlFfi.instance ?: throw BamlException("FFI not loaded. Call BamlFfi.load() first.")
-            val buf = ffi.version()
-            try {
-                return buf.toByteArray()?.let { String(it, Charsets.UTF_8) } ?: ""
-            } finally {
-                BamlFfi.freeBuffer(buf)
-            }
+            val bytes = ffi.version()
+            return if (bytes.isNotEmpty()) String(bytes, Charsets.UTF_8) else ""
         }
 
         /**
@@ -45,7 +41,7 @@ class BamlRuntime private constructor(
 
             // Register callbacks once
             if (!callbacksRegistered) {
-                ffi.register_callbacks(
+                ffi.registerCallbacks(
                     CallbackManager.resultCallback,
                     CallbackManager.errorCallback,
                     CallbackManager.onTickCallback
@@ -58,9 +54,7 @@ class BamlRuntime private constructor(
 
             val srcFilesJson = gson.toJson(srcFiles)
 
-            val runtimePtr = ffi.create_baml_runtime(rootPath, srcFilesJson)
-                ?: throw BamlException("Failed to create BAML runtime")
-
+            val runtimePtr = ffi.createBamlRuntime(rootPath, srcFilesJson)
             return BamlRuntime(runtimePtr)
         }
     }
@@ -69,6 +63,6 @@ class BamlRuntime private constructor(
      * Destroy this runtime. After this call, the runtime pointer is invalid.
      */
     fun destroy() {
-        BamlFfi.instance?.destroy_baml_runtime(runtimePtr)
+        BamlFfi.instance?.destroyBamlRuntime(runtimePtr)
     }
 }

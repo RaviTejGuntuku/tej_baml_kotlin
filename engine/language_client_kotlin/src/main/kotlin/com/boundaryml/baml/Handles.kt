@@ -43,7 +43,7 @@ class BamlHandle(
         if (!closed) {
             closed = true
             try {
-                BamlFfi.instance?.release_handle(key.toULong().toLong())
+                BamlFfi.instance?.releaseHandle(key)
             } catch (_: Exception) {
                 // Best-effort release; ignore errors on close
             }
@@ -53,7 +53,7 @@ class BamlHandle(
     fun clone(): BamlHandle {
         check(!closed) { "Cannot clone a closed handle" }
         val ffi = BamlFfi.instance ?: throw BamlException("FFI not initialized")
-        val newKey = ffi.clone_handle(key.toULong().toLong())
+        val newKey = ffi.cloneHandle(key)
         return BamlHandle(newKey, type)
     }
 

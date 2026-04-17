@@ -5,3 +5,13 @@ linker = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llv
 [target.x86_64-linux-android]
 ar = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
 linker = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android24-clang"
+
+# The `cc` crate (used by aws-lc-sys, ring, etc.) looks for CC/AR env vars,
+# NOT the [target.*.linker] above. These must be set separately.
+# The target-qualified env var names ensure they only apply when cross-compiling
+# for that specific target — they won't affect host or other target builds.
+[env]
+CC_aarch64_linux_android = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang"
+AR_aarch64_linux_android = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+CC_x86_64_linux_android = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android24-clang"
+AR_x86_64_linux_android = "/Users/tejguntuku/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"

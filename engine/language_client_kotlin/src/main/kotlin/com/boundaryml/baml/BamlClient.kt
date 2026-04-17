@@ -1,22 +1,17 @@
 package com.boundaryml.baml
 
 import com.boundaryml.baml.cffi.InvocationResponse
-import com.sun.jna.NativeLong
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resumeWithException
 
 /**
  * Client for calling BAML functions via the Rust engine.
- * Uses JNA FFI + protobuf encoding + Kotlin coroutines for async delivery.
+ * Uses FFI + protobuf encoding + Kotlin coroutines for async delivery.
  */
 class BamlClient(
     private val runtime: BamlRuntime
@@ -36,10 +31,9 @@ class BamlClient(
         // Launch a coroutine to handle cancellation
         val cancelJob = launch {
             try {
-                // This coroutine will be cancelled when the parent scope is cancelled
                 suspendCancellableCoroutine<Unit> { cont ->
                     cont.invokeOnCancellation {
-                        ffi.cancel_function_call(callbackId)
+                        ffi.cancelFunctionCall(callbackId)
                     }
                 }
             } catch (_: Exception) {
@@ -49,17 +43,16 @@ class BamlClient(
 
         try {
             // Call the FFI function (this spawns an async task in Rust and returns immediately)
-            val ackBuf = ffi.call_function_from_c(
+            val ackBytes = ffi.callFunctionFromC(
                 runtime.runtimePtr,
                 name,
                 args,
-                NativeLong(args.size.toLong()),
                 callbackId
             )
 
             // Check for synchronous errors in the ack
             try {
-                checkAck(ackBuf)
+                checkAck(ackBytes)
             } catch (e: Exception) {
                 CallbackManager.cleanupCallback(callbackId, channel)
                 throw e
@@ -88,16 +81,15 @@ class BamlClient(
         val (callbackId, channel) = CallbackManager.createStreamCallbackId()
 
         // Call the FFI function
-        val ackBuf = ffi.call_function_stream_from_c(
+        val ackBytes = ffi.callFunctionStreamFromC(
             runtime.runtimePtr,
             name,
             args,
-            NativeLong(args.size.toLong()),
             callbackId
         )
 
         try {
-            checkAck(ackBuf)
+            checkAck(ackBytes)
         } catch (e: Exception) {
             CallbackManager.cleanupCallback(callbackId, channel)
             throw e
@@ -118,7 +110,7 @@ class BamlClient(
         }
 
         awaitClose {
-            ffi.cancel_function_call(callbackId)
+            ffi.cancelFunctionCall(callbackId)
         }
     }
 
@@ -133,23 +125,22 @@ class BamlClient(
             try {
                 suspendCancellableCoroutine<Unit> { cont ->
                     cont.invokeOnCancellation {
-                        ffi.cancel_function_call(callbackId)
+                        ffi.cancelFunctionCall(callbackId)
                     }
                 }
             } catch (_: Exception) {}
         }
 
         try {
-            val ackBuf = ffi.call_function_parse_from_c(
+            val ackBytes = ffi.callFunctionParseFromC(
                 runtime.runtimePtr,
                 name,
                 args,
-                NativeLong(args.size.toLong()),
                 callbackId
             )
 
             try {
-                checkAck(ackBuf)
+                checkAck(ackBytes)
             } catch (e: Exception) {
                 CallbackManager.cleanupCallback(callbackId, channel)
                 throw e
@@ -166,19 +157,14 @@ class BamlClient(
     }
 
     /**
-     * Check the synchronous ack buffer from an FFI call.
-     * Empty buffer = success (task spawned). Non-empty = InvocationResponse with potential error.
+     * Check the synchronous ack bytes from an FFI call.
+     * Null/empty = success (task spawned). Non-empty = InvocationResponse with potential error.
      */
-    private fun checkAck(buf: FfiBuffer) {
-        try {
-            val bytes = buf.toByteArray() ?: return // Empty = success
-
-            val response = InvocationResponse.parseFrom(bytes)
-            if (response.hasError()) {
-                throw BamlException(response.error)
-            }
-        } finally {
-            BamlFfi.freeBuffer(buf)
+    private fun checkAck(bytes: ByteArray?) {
+        if (bytes == null || bytes.isEmpty()) return
+        val response = InvocationResponse.parseFrom(bytes)
+        if (response.hasError()) {
+            throw BamlException(response.error)
         }
     }
 }
