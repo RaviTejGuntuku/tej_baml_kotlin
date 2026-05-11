@@ -180,6 +180,105 @@ impl TypeKotlin {
             TypeKotlin::Any { .. } => "null".to_string(),
         }
     }
+
+    fn namespace_literal_for_package(package: &Package) -> &'static str {
+        match package.current().as_str() {
+            "types" => "TYPES",
+            "stream_types" => "STREAM_TYPES",
+            other => panic!("Unsupported package namespace for generated decode expression: {other}"),
+        }
+    }
+
+    pub fn decode_field_expr(&self, field_name: &str, pkg: &CurrentRenderPackage) -> String {
+        let field_access = match self {
+            TypeKotlin::Optional(_) => format!("fields[\"{field_name}\"]"),
+            _ => format!("Serde.requireField(fields, \"{field_name}\")"),
+        };
+
+        self.decode_expr(&field_access, pkg)
+    }
+
+    pub fn decode_expr(&self, value_expr: &str, pkg: &CurrentRenderPackage) -> String {
+        match self {
+            TypeKotlin::Null => {
+                format!("Serde.expectNull({value_expr})")
+            }
+            TypeKotlin::Optional(inner) => {
+                format!(
+                    "Serde.coerceNullable({value_expr}) {{ value -> {} }}",
+                    inner.decode_expr("value", pkg)
+                )
+            }
+            TypeKotlin::Checked(inner) => {
+                format!(
+                    "Serde.coerceChecked({value_expr}) {{ value -> {} }}",
+                    inner.decode_expr("value", pkg)
+                )
+            }
+            TypeKotlin::StreamState(inner) => {
+                format!(
+                    "Serde.coerceStreamState({value_expr}) {{ value -> {} }}",
+                    inner.decode_expr("value", pkg)
+                )
+            }
+            TypeKotlin::String(..) => format!("Serde.coerceString({value_expr})"),
+            TypeKotlin::Int(..) => format!("Serde.coerceLong({value_expr})"),
+            TypeKotlin::Float => format!("Serde.coerceDouble({value_expr})"),
+            TypeKotlin::Bool(..) => format!("Serde.coerceBoolean({value_expr})"),
+            TypeKotlin::Media(..) => {
+                format!("Serde.coerceInstance<{}>({value_expr})", self.serialize_type(pkg))
+            }
+            TypeKotlin::Class { package, name, .. }
+            | TypeKotlin::Union { package, name, .. } => {
+                let namespace = Self::namespace_literal_for_package(package);
+                format!(
+                    "Serde.coerceNamedType<{}>({value_expr}, typeMap, \"{namespace}\", \"{name}\")",
+                    self.serialize_type(pkg)
+                )
+            }
+            TypeKotlin::Enum { package, name, .. } => {
+                let namespace = Self::namespace_literal_for_package(package);
+                format!(
+                    "Serde.coerceEnum<{}>({value_expr}, \"{namespace}\", \"{name}\")",
+                    self.serialize_type(pkg)
+                )
+            }
+            TypeKotlin::TypeAlias { name, package } => {
+                let lookup = pkg.lookup();
+                match lookup.expand_recursive_type(name) {
+                    Ok(expansion) => {
+                        let expanded = if package == &Package::types() {
+                            crate::ir_to_kotlin::type_to_kotlin(
+                                &expansion.to_non_streaming_type(lookup),
+                                lookup,
+                            )
+                        } else {
+                            crate::ir_to_kotlin::stream_type_to_kotlin(
+                                &expansion.to_streaming_type(lookup),
+                                lookup,
+                            )
+                        };
+                        expanded.decode_expr(value_expr, pkg)
+                    }
+                    Err(_) => format!("Serde.coerceInstance<{}>({value_expr})", self.serialize_type(pkg)),
+                }
+            }
+            TypeKotlin::List(inner) => {
+                format!(
+                    "Serde.coerceList({value_expr}) {{ item -> {} }}",
+                    inner.decode_expr("item", pkg)
+                )
+            }
+            TypeKotlin::Map(key, value) => {
+                format!(
+                    "Serde.coerceMap({value_expr}, {{ key -> {} }}, {{ entryValue -> {} }})",
+                    key.decode_expr("key", pkg),
+                    value.decode_expr("entryValue", pkg)
+                )
+            }
+            TypeKotlin::Any { .. } => value_expr.to_string(),
+        }
+    }
 }
 
 pub trait SerializeType {

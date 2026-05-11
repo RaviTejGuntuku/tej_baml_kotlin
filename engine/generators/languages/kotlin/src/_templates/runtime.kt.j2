@@ -24,9 +24,12 @@ object BamlRuntime {
     fun init(envVars: Map<String, String> = emptyMap()) {
         if (runtime != null) return
         BamlFfi.load()
+        val typeMap = BamlTypeMap().also(::registerBamlTypes)
         val rt = com.boundaryml.baml.BamlRuntime.create(
             rootPath = ".",
-            srcFiles = getBamlFiles()
+            srcFiles = getBamlFiles(),
+            envVars = envVars,
+            typeMap = typeMap,
         )
         runtime = rt
         _client = BamlClient(rt)

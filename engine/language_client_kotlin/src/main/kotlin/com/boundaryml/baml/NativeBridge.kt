@@ -21,7 +21,7 @@ interface NativeOnTickCallback {
  */
 interface NativeBamlLib {
     fun version(): ByteArray
-    fun createBamlRuntime(rootPath: String, srcFilesJson: String): Long
+    fun createBamlRuntime(rootPath: String, srcFilesJson: String, envVarsJson: String): Long
     fun destroyBamlRuntime(runtime: Long)
     fun registerCallbacks(
         resultCallback: NativeResultCallback,

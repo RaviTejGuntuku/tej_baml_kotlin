@@ -1,7 +1,6 @@
 package com.boundaryml.baml
 
 import com.boundaryml.baml.cffi.InvocationResponse
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -28,19 +27,6 @@ class BamlClient(
         val ffi = BamlFfi.instance ?: throw BamlException("FFI not loaded")
         val (callbackId, channel) = CallbackManager.createCallbackId()
 
-        // Launch a coroutine to handle cancellation
-        val cancelJob = launch {
-            try {
-                suspendCancellableCoroutine<Unit> { cont ->
-                    cont.invokeOnCancellation {
-                        ffi.cancelFunctionCall(callbackId)
-                    }
-                }
-            } catch (_: Exception) {
-                // Expected when cancelled
-            }
-        }
-
         try {
             // Call the FFI function (this spawns an async task in Rust and returns immediately)
             val ackBytes = ffi.callFunctionFromC(
@@ -58,14 +44,29 @@ class BamlClient(
                 throw e
             }
 
-            // Wait for the callback result
-            val result = channel.receive()
-            if (result.error != null) {
-                throw result.error
+            suspendCancellableCoroutine<Any?> { cont ->
+                cont.invokeOnCancellation {
+                    ffi.cancelFunctionCall(callbackId)
+                    CallbackManager.cleanupCallback(callbackId, channel)
+                }
+
+                launch {
+                    try {
+                        val result = channel.receive()
+                        if (result.error != null) {
+                            cont.resumeWith(Result.failure(result.error))
+                        } else {
+                            cont.resumeWith(Result.success(result.data))
+                        }
+                    } catch (e: Throwable) {
+                        if (cont.isActive) {
+                            cont.resumeWith(Result.failure(e))
+                        }
+                    }
+                }
             }
-            result.data
         } finally {
-            cancelJob.cancel()
+            CallbackManager.cleanupCallback(callbackId, channel)
         }
     }
 
@@ -121,16 +122,6 @@ class BamlClient(
         val ffi = BamlFfi.instance ?: throw BamlException("FFI not loaded")
         val (callbackId, channel) = CallbackManager.createCallbackId()
 
-        val cancelJob = launch {
-            try {
-                suspendCancellableCoroutine<Unit> { cont ->
-                    cont.invokeOnCancellation {
-                        ffi.cancelFunctionCall(callbackId)
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-
         try {
             val ackBytes = ffi.callFunctionParseFromC(
                 runtime.runtimePtr,
@@ -146,13 +137,29 @@ class BamlClient(
                 throw e
             }
 
-            val result = channel.receive()
-            if (result.error != null) {
-                throw result.error
+            suspendCancellableCoroutine<Any?> { cont ->
+                cont.invokeOnCancellation {
+                    ffi.cancelFunctionCall(callbackId)
+                    CallbackManager.cleanupCallback(callbackId, channel)
+                }
+
+                launch {
+                    try {
+                        val result = channel.receive()
+                        if (result.error != null) {
+                            cont.resumeWith(Result.failure(result.error))
+                        } else {
+                            cont.resumeWith(Result.success(result.data ?: result.streamData))
+                        }
+                    } catch (e: Throwable) {
+                        if (cont.isActive) {
+                            cont.resumeWith(Result.failure(e))
+                        }
+                    }
+                }
             }
-            result.data ?: result.streamData
         } finally {
-            cancelJob.cancel()
+            CallbackManager.cleanupCallback(callbackId, channel)
         }
     }
 

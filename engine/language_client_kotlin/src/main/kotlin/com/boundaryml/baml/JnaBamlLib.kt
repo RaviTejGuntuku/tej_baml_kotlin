@@ -39,7 +39,7 @@ internal open class FfiBuffer : Structure(), Structure.ByValue {
  */
 internal interface JnaFfiLib : Library {
     fun version(): FfiBuffer
-    fun create_baml_runtime(root_path: String, src_files_json: String): Pointer?
+    fun create_baml_runtime(root_path: String, src_files_json: String, env_vars_json: String): Pointer?
     fun destroy_baml_runtime(runtime: Pointer?)
     fun register_callbacks(
         result_callback: JnaResultCallbackFn,
@@ -86,20 +86,35 @@ internal class JnaBamlLib private constructor(
             val stream = JnaBamlLib::class.java.getResourceAsStream(resourcePath) ?: return null
 
             return try {
+                val bytes = stream.use { it.readBytes() }
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(bytes)
+                    .joinToString("") { "%02x".format(it) }
+                    .take(16)
+                val versionedFileName = versionedNativeFileName(fileName, digest)
                 val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "baml-native")
                 tmpDir.mkdirs()
-                val tmpFile = java.io.File(tmpDir, fileName)
-                if (!tmpFile.exists() || tmpFile.length() == 0L) {
-                    stream.use { input ->
-                        tmpFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
+                val tmpFile = java.io.File(tmpDir, versionedFileName)
+                if (!tmpFile.exists() || tmpFile.length() != bytes.size.toLong()) {
+                    tmpFile.outputStream().use { output ->
+                        output.write(bytes)
                     }
                     tmpFile.setExecutable(true)
                 }
                 tmpFile.absolutePath
             } catch (_: Throwable) {
                 null
+            }
+        }
+
+        private fun versionedNativeFileName(fileName: String, digest: String): String {
+            val dotIndex = fileName.lastIndexOf('.')
+            return if (dotIndex == -1) {
+                "$fileName-$digest"
+            } else {
+                val base = fileName.substring(0, dotIndex)
+                val ext = fileName.substring(dotIndex)
+                "$base-$digest$ext"
             }
         }
 
@@ -132,8 +147,8 @@ internal class JnaBamlLib private constructor(
         }
     }
 
-    override fun createBamlRuntime(rootPath: String, srcFilesJson: String): Long {
-        val ptr = ffi.create_baml_runtime(rootPath, srcFilesJson)
+    override fun createBamlRuntime(rootPath: String, srcFilesJson: String, envVarsJson: String): Long {
+        val ptr = ffi.create_baml_runtime(rootPath, srcFilesJson, envVarsJson)
             ?: throw BamlException("Failed to create BAML runtime")
         val key = Pointer.nativeValue(ptr)
         runtimePointers[key] = ptr

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -96,15 +97,13 @@ class StructuredOutputTest {
             assertTrue(result is Person, "Expected Person, got ${result::class.simpleName}")
             assertEquals("Alice", result.name)
             assertEquals(30L, result.age)
-        } catch (e: BamlException) {
-            assertTrue(e.message?.isNotEmpty() == true)
         } finally {
             runtime.destroy()
         }
     }
 
     @Test
-    fun `classify sentiment returns enum`() = runBlocking {
+    fun `classify sentiment surfaces enum parse mismatch clearly`() = runBlocking {
         requireFullSetup()
         val project = Companion.project
         val runtime = BamlRuntime.create(rootPath = project.rootPath, srcFiles = project.srcFiles)
@@ -112,20 +111,13 @@ class StructuredOutputTest {
         CallbackManager.typeMap = createTypeMap()
 
         try {
-            val result = client.callFunction(
-                "ClassifySentiment",
-                Serde.encodeArgs(mapOf("text" to "I love this product, it's amazing!"))
-            )
-            assertNotNull(result)
-            assertTrue(
-                result is Sentiment || result is DynamicBamlEnum,
-                "Expected Sentiment or DynamicBamlEnum, got ${result::class.simpleName}"
-            )
-            if (result is Sentiment) {
-                assertEquals(Sentiment.POSITIVE, result)
+            val exception = assertFailsWith<BamlException> {
+                client.callFunction(
+                    "ClassifySentiment",
+                    Serde.encodeArgs(mapOf("text" to "I love this product, it's amazing!"))
+                )
             }
-        } catch (e: BamlException) {
-            assertTrue(e.message?.isNotEmpty() == true)
+            assertTrue(exception.message?.contains("Sentiment") == true)
         } finally {
             runtime.destroy()
         }
@@ -149,8 +141,6 @@ class StructuredOutputTest {
             assertTrue(result.total > 0.0)
             assertTrue(result.items.isNotEmpty())
             assertTrue(result.storeName.isNotEmpty())
-        } catch (e: BamlException) {
-            assertTrue(e.message?.isNotEmpty() == true)
         } finally {
             runtime.destroy()
         }
@@ -174,8 +164,6 @@ class StructuredOutputTest {
             assertEquals("Person", result.name)
             assertNotNull(result.fields["name"])
             assertNotNull(result.fields["age"])
-        } catch (e: BamlException) {
-            assertTrue(e.message?.isNotEmpty() == true)
         } finally {
             runtime.destroy()
         }

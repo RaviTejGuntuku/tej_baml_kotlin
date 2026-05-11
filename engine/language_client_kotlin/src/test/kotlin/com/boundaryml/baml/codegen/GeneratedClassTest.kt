@@ -2,8 +2,10 @@ package com.boundaryml.baml.codegen
 
 import baml_client.registerBamlTypes
 import baml_client.types.Address
+import baml_client.types.LineItem
 import baml_client.types.Person
 import baml_client.types.Receipt
+import baml_client.types.ShoppingPlan
 import com.boundaryml.baml.*
 import com.boundaryml.baml.cffi.*
 import org.junit.jupiter.api.Test
@@ -178,5 +180,61 @@ class GeneratedClassTest {
         assertEquals("Store A", decoded.store)
         assertEquals(listOf("milk", "bread"), decoded.items)
         assertEquals(12.50, decoded.total)
+    }
+
+    @Test
+    fun `shopping plan decodes nested class list`() {
+        val tm = typeMap()
+        val holder = cFFIValueHolder {
+            classValue = cFFIValueClass {
+                name = cFFITypeName {
+                    namespace = CFFITypeNamespace.TYPES
+                    this.name = "ShoppingPlan"
+                }
+                fields.add(cFFIMapEntry {
+                    key = "items"
+                    value = cFFIValueHolder {
+                        listValue = cFFIValueList {
+                            items.add(cFFIValueHolder {
+                                mapValue = cFFIValueMap {
+                                    entries.add(cFFIMapEntry {
+                                        key = "sku"
+                                        value = cFFIValueHolder { stringValue = "eggs" }
+                                    })
+                                    entries.add(cFFIMapEntry {
+                                        key = "quantity"
+                                        value = cFFIValueHolder { intValue = 12L }
+                                    })
+                                }
+                            })
+                            items.add(cFFIValueHolder {
+                                mapValue = cFFIValueMap {
+                                    entries.add(cFFIMapEntry {
+                                        key = "sku"
+                                        value = cFFIValueHolder { stringValue = "spinach" }
+                                    })
+                                    entries.add(cFFIMapEntry {
+                                        key = "quantity"
+                                        value = cFFIValueHolder { intValue = 1L }
+                                    })
+                                }
+                            })
+                        }
+                    }
+                })
+                fields.add(cFFIMapEntry {
+                    key = "note"
+                    value = cFFIValueHolder { stringValue = "buy fresh" }
+                })
+            }
+        }
+
+        val decoded = Serde.decodeValue(holder, tm)
+        assertIs<ShoppingPlan>(decoded)
+        assertEquals("buy fresh", decoded.note)
+        assertEquals(2, decoded.items.size)
+        assertIs<LineItem>(decoded.items[0])
+        assertEquals("eggs", decoded.items[0].sku)
+        assertEquals(12L, decoded.items[0].quantity)
     }
 }

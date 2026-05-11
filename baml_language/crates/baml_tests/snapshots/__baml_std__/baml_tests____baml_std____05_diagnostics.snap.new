@@ -1,0 +1,44 @@
+---
+source: crates/baml_tests/src/generated_tests.rs
+assertion_line: 27311
+---
+=== DIAGNOSTICS ===
+  [type] Warning: Unreachable catch arm
+     ╭─[ llm.baml:253:19 ]
+     │
+ 253 │                 _: string => baml.llm.ExecutionResult {
+     │                   ────┬────  
+     │                       ╰────── Unreachable catch arm
+     │ 
+     │ Note: Error code: E0095
+─────╯
+
+  [type] Warning: Unreachable catch arm
+     ╭─[ llm.baml:258:19 ]
+     │
+ 258 │                 _ => baml.llm.ExecutionResult {
+     │                   ┬  
+     │                   ╰── Unreachable catch arm
+     │ 
+     │ Note: Error code: E0095
+─────╯
+
+  [type] Warning: Unreachable catch arm
+     ╭─[ llm.baml:253:19 ]
+     │
+ 253 │                 _: string => baml.llm.ExecutionResult {
+     │                   ────┬────  
+     │                       ╰────── Unreachable catch arm
+     │ 
+     │ Note: Error code: E0095
+─────╯
+
+  [type] Warning: Unreachable catch arm
+     ╭─[ llm.baml:258:19 ]
+     │
+ 258 │                 _ => baml.llm.ExecutionResult {
+     │                   ┬  
+     │                   ╰── Unreachable catch arm
+     │ 
+     │ Note: Error code: E0095
+─────╯

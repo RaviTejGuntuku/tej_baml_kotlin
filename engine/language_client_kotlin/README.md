@@ -89,7 +89,7 @@ function ClassifySentiment(text: string) -> Sentiment {
 baml-cli generate
 ```
 
-This produces `src/main/kotlin/baml_client/` with typed data classes, enums, function wrappers, and a type registry — all generated from your `.baml` definitions.
+This produces `src/main/kotlin/baml_client/` with typed data classes, enums, function wrappers, a type registry, and a generated runtime initializer — all generated from your `.baml` definitions.
 
 ### 3. Use in your app
 
@@ -98,26 +98,25 @@ import baml_client.*
 import com.boundaryml.baml.*
 
 fun main() = runBlocking {
-    // Initialize (once at startup)
-    BamlFfi.load()
-    val runtime = BamlRuntime.create(
-        rootPath = ".",
-        srcFiles = BamlSourceMap.files,
-        typeMap = BamlTypeMap.create()
+    // Initialize once at startup. Generated runtime code wires in:
+    // - embedded BAML source files
+    // - the generated type registry
+    // - env vars for your providers
+    BamlRuntime.init(
+        envVars = mapOf("OPENAI_API_KEY" to requireNotNull(System.getenv("OPENAI_API_KEY")))
     )
-    val b = BamlFunctions(BamlClient(runtime))
 
     // Call a function — returns a typed Person object
-    val person = b.ExtractPerson("John is 30, john@example.com")
+    val person = BamlFunctions.ExtractPerson("John is 30, john@example.com")
     println(person.name)   // "John"
     println(person.age)    // 30
     println(person.email)  // "john@example.com"
 
     // Returns a typed enum
-    val sentiment = b.ClassifySentiment("I love this product!")
+    val sentiment = BamlFunctions.ClassifySentiment("I love this product!")
     println(sentiment)     // POSITIVE
 
-    runtime.destroy()
+    BamlRuntime.destroy()
 }
 ```
 
@@ -133,7 +132,9 @@ export OPENAI_API_KEY=sk-...
 ### Streaming
 
 ```kotlin
-val stream = BamlStreamFunctions(BamlClient(runtime))
+BamlRuntime.init(mapOf("OPENAI_API_KEY" to requireNotNull(System.getenv("OPENAI_API_KEY"))))
+
+val stream = BamlStreamFunctions
     .ExtractPersonStream("John is 30, john@example.com")
 
 stream.collect { result ->
@@ -145,7 +146,7 @@ stream.collect { result ->
 ### Per-call client override
 
 ```kotlin
-val person = b.ExtractPerson(
+val person = BamlFunctions.ExtractPerson(
     "Alice is 25",
     options = CallOptions(client = "GPT4Turbo")
 )
@@ -189,6 +190,24 @@ Callback -> Channel -> resumes Kotlin coroutine with typed result
 
 The SDK communicates with a Rust runtime engine via FFI. On desktop JVM, it uses JNA; on Android, it uses JNI with a C bridge layer. Function arguments are protobuf-encoded, sent across the FFI boundary, and results are delivered asynchronously via callbacks that resume Kotlin coroutines.
 
+On desktop JVM, the JNA loader now extracts bundled native libraries under a content-addressed filename instead of a fixed `/tmp` name. That prevents stale `bridge_cffi` binaries from being reused after rebuilding the SDK.
+
+### Generated Runtime Guarantees
+
+The intended developer workflow is:
+
+1. Define `.baml` files.
+2. Run `baml-cli generate`.
+3. Call `BamlRuntime.init(envVars)` once, then use the generated wrappers.
+
+Generated Kotlin code no longer requires an app-local compatibility shim to:
+
+- register generated classes/enums/unions with the SDK,
+- inject provider env vars into runtime creation,
+- or decode nested structured outputs.
+
+Nested structured fields such as `List<Class>`, `Map<String, Class>`, optional nested classes, checked values, and stream-state wrappers are recursively materialized by generated decode code through SDK `Serde.coerce*` helpers. This prevents JVM-erased casts like `List<LinkedHashMap> as List<MyType>` from leaking into app code.
+
 ### Features
 
 - Async function calls via Kotlin coroutines (`suspend fun`)
@@ -225,7 +244,18 @@ See [jni/](jni/) for the C bridge source and CMake config. See the [Building fro
 
 ## Tests
 
-119 tests across unit (82), codegen (22), and integration (15). See [TESTS.md](TESTS.md) for details.
+The SDK includes focused unit and generated-code regression tests for:
+
+- runtime initialization and generated type registration,
+- recursive decoding of nested structured outputs,
+- generated wrappers calling through the generated runtime,
+- and standard encode/decode, streaming, and callback behavior.
+
+See [TESTS.md](TESTS.md) for the current test inventory and commands.
+
+## Build Tooling
+
+The Kotlin SDK module is validated on Gradle 9.0.0 and uses Kotlin Gradle Plugin 2.0.21. The module still targets JVM toolchain 21 for compilation and testing.
 
 ```bash
 ./gradlew clean test   # all tests

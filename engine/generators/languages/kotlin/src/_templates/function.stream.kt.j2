@@ -8,5 +8,5 @@
             "{{ name }}" to {{ name }}{% if !loop.last %},{% endif %}
             {%- endfor %}
         ), options)
-        return client.streamFunction("{{ fn.name }}", args)
+        return BamlRuntime.client.streamFunction("{{ fn.name }}", args)
     }

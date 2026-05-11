@@ -370,6 +370,12 @@ pub struct SysOpContext {
     /// Prepended to templates by `get_jinja_template`.
     pub template_strings_macros: Arc<String>,
 
+    /// Runtime class definitions available for output-format rendering.
+    pub llm_classes: Arc<std::collections::HashMap<String, bex_vm_types::Class>>,
+
+    /// Runtime enum definitions available for output-format rendering.
+    pub llm_enums: Arc<std::collections::HashMap<String, bex_vm_types::Enum>>,
+
     /// Client metadata for building full client trees, keyed by client name.
     /// Used by `get_client` to recursively construct `LlmClient` with sub-clients and retry policies.
     pub client_metadata: Arc<std::collections::HashMap<String, ClientBuildMeta>>,
@@ -422,6 +428,8 @@ impl SysOpContext {
             llm_functions: Arc::new(std::collections::HashMap::new()),
             function_global_indices: Arc::new(std::collections::HashMap::new()),
             template_strings_macros: Arc::new(String::new()),
+            llm_classes: Arc::new(std::collections::HashMap::new()),
+            llm_enums: Arc::new(std::collections::HashMap::new()),
             client_metadata: Arc::new(std::collections::HashMap::new()),
             round_robin_counters: Arc::new(std::collections::HashMap::new()),
             cancel: CancellationToken::new(),
@@ -612,9 +620,18 @@ impl<T> SysOpLlm for T {
         primitive_client: bex_heap::builtin_types::owned::LlmPrimitiveClient,
         template: String,
         args: BexExternalValue,
+        output_type: baml_type::Ty,
+        ctx: &SysOpContext,
     ) -> SysOpOutput<bex_vm_types::PromptAst> {
         SysOpOutput::Ready(
-            sys_llm::execute_render_prompt_from_owned(&primitive_client, &template, &args)
+            sys_llm::execute_render_prompt_from_owned(
+                &primitive_client,
+                &template,
+                &args,
+                &output_type,
+                &ctx.llm_classes,
+                &ctx.llm_enums,
+            )
                 .map_err(OpErrorKind::from),
         )
     }
@@ -636,9 +653,17 @@ impl<T> SysOpLlm for T {
         _call_id: CallId,
         primitive_client: bex_heap::builtin_types::owned::LlmPrimitiveClient,
         prompt: bex_vm_types::PromptAst,
+        output_type: baml_type::Ty,
+        ctx: &SysOpContext,
     ) -> SysOpOutput<bex_heap::builtin_types::owned::HttpRequest> {
         SysOpOutput::Ready(
-            sys_llm::execute_build_request_from_owned(&primitive_client, prompt)
+            sys_llm::execute_build_request_from_owned(
+                &primitive_client,
+                prompt,
+                &output_type,
+                &ctx.llm_classes,
+                &ctx.llm_enums,
+            )
                 .map_err(OpErrorKind::from),
         )
     }

@@ -96,6 +96,7 @@ fn call_function_inner(
                 send_result_to_callback(id, true, &value);
             }
             Ok(Err(e)) => {
+                eprintln!("bridge_cffi call_function error for {func_name}:\n{}", format_error_chain(&e));
                 send_error_to_callback(id, &format!("{}", e));
             }
             Err(panic_info) => {
@@ -113,6 +114,17 @@ fn call_function_inner(
     });
 
     Ok(())
+}
+
+fn format_error_chain(err: &dyn std::error::Error) -> String {
+    let mut out = err.to_string();
+    let mut current = err.source();
+    while let Some(source) = current {
+        out.push_str("\n  Caused by: ");
+        out.push_str(&source.to_string());
+        current = source.source();
+    }
+    out
 }
 
 /// Parse LLM response (call_function_parse).

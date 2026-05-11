@@ -539,10 +539,14 @@ impl BexEngine {
             })
             .collect();
 
+        let (llm_classes, llm_enums) = Self::extract_schema_defs(&heap);
+
         let sys_op_ctx = sys_types::SysOpContext {
             llm_functions: Arc::new(llm_functions),
             function_global_indices: Arc::new(bytecode.function_global_indices),
             template_strings_macros: Arc::new(bytecode.template_strings_macros),
+            llm_classes: Arc::new(llm_classes),
+            llm_enums: Arc::new(llm_enums),
             client_metadata: Arc::new(client_metadata),
             round_robin_counters: Arc::new(round_robin_counters),
             cancel: CancellationToken::new(),
@@ -611,6 +615,32 @@ impl BexEngine {
             }
         }
         llm_functions
+    }
+
+    fn extract_schema_defs(
+        heap: &Arc<BexHeap>,
+    ) -> (
+        HashMap<String, bex_vm_types::Class>,
+        HashMap<String, bex_vm_types::Enum>,
+    ) {
+        let mut classes = HashMap::new();
+        let mut enums = HashMap::new();
+
+        for idx in 0..heap.compile_time_len() {
+            let ptr = heap.compile_time_ptr(idx);
+            // SAFETY: compile-time objects are permanent and valid for the engine lifetime.
+            match unsafe { ptr.get() } {
+                Object::Class(class) => {
+                    classes.insert(class.name.clone(), class.clone());
+                }
+                Object::Enum(enm) => {
+                    enums.insert(enm.name.clone(), enm.clone());
+                }
+                _ => {}
+            }
+        }
+
+        (classes, enums)
     }
 
     /// Get a reference to the shared heap.

@@ -39,7 +39,7 @@ object CallbackManager {
      */
     fun createCallbackId(): Pair<Int, Channel<BamlResult>> {
         val id = nextId.incrementAndGet()
-        val channel = Channel<BamlResult>(capacity = 64)
+        val channel = Channel<BamlResult>(capacity = 1)
         callbacks[id] = CallbackEntry(channel, RESPONSE_TYPE_VALUE)
         return id to channel
     }

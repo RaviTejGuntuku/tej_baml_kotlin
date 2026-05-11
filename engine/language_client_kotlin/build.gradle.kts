@@ -1,7 +1,8 @@
 import com.google.protobuf.gradle.*
+import java.io.ByteArrayOutputStream
 
 plugins {
-    kotlin("jvm") version "1.9.22"
+    kotlin("jvm") version "2.0.21"
     id("com.google.protobuf") version "0.9.4"
     `maven-publish`
     signing
@@ -17,6 +18,40 @@ val dotenv = file(".env").takeIf { it.exists() }?.readLines()
 
 fun envOrDotenv(key: String): String =
     System.getenv(key) ?: dotenv[key] ?: ""
+
+fun runCommand(
+    workingDir: File,
+    vararg command: String,
+    env: Map<String, String> = emptyMap()
+) {
+    val stdout = ByteArrayOutputStream()
+    val stderr = ByteArrayOutputStream()
+    val result = providers.exec {
+        this.workingDir = workingDir
+        commandLine(*command)
+        environment(env)
+        standardOutput = stdout
+        errorOutput = stderr
+    }.result.get()
+
+    if (result.exitValue != 0) {
+        throw GradleException(
+            buildString {
+                append("Command failed (${command.joinToString(" ")}), exit code ${result.exitValue}")
+                val err = stderr.toString().trim()
+                val out = stdout.toString().trim()
+                if (err.isNotEmpty()) {
+                    append("\nSTDERR:\n")
+                    append(err)
+                }
+                if (out.isNotEmpty()) {
+                    append("\nSTDOUT:\n")
+                    append(out)
+                }
+            }
+        )
+    }
+}
 
 group = "io.github.ravitejguntuku"
 version = "0.1.0"
@@ -83,6 +118,25 @@ tasks.test {
         showStandardStreams = true
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
     }
+}
+
+val buildBridgeCffi by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Build the desktop bridge_cffi library used by integration tests"
+    workingDir = file("../../baml_language")
+    commandLine(
+        "cargo",
+        "build",
+        "-p",
+        "bridge_cffi",
+        "--release",
+        "--manifest-path",
+        "Cargo.toml"
+    )
+}
+
+tasks.test {
+    dependsOn(buildBridgeCffi)
 }
 
 // ./gradlew demo — runs the interactive demo showing the full SDK pipeline
@@ -235,16 +289,15 @@ tasks.register("publishCentralBundle") {
         require(repoDir.exists()) { "Local Maven repo not found at $repoDir" }
 
         // Generate MD5 and SHA1 checksums for all artifacts
-        exec {
-            workingDir(repoDir)
-            commandLine("bash", "-c", """
+        runCommand(repoDir,
+            "bash", "-c", """
                 for f in *.jar *.pom *.module *.asc; do
                     [ -f "${'$'}f" ] || continue
                     md5 -q "${'$'}f" > "${'$'}f.md5"
                     shasum -a 1 "${'$'}f" | cut -d' ' -f1 > "${'$'}f.sha1"
                 done
-            """.trimIndent())
-        }
+            """.trimIndent()
+        )
 
         val bundleZip = layout.buildDirectory.file("central-bundle.zip").get().asFile
         bundleZip.delete()
@@ -267,15 +320,14 @@ tasks.register("publishCentralBundle") {
         val password = findProperty("ossrhPassword") as String? ?: ""
 
         // Upload via curl
-        exec {
-            commandLine(
-                "curl", "--fail", "-X", "POST",
-                "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC",
-                "-u", "$username:$password",
-                "-F", "bundle=@${bundleZip.absolutePath}",
-                "-v"
-            )
-        }
+        runCommand(
+            project.projectDir,
+            "curl", "--fail", "-X", "POST",
+            "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC",
+            "-u", "$username:$password",
+            "-F", "bundle=@${bundleZip.absolutePath}",
+            "-v"
+        )
 
         println("\nUploaded to Maven Central! Track status at: https://central.sonatype.com/publishing")
     }

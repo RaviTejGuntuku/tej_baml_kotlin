@@ -8,7 +8,7 @@
             "{{ name }}" to {{ name }}{% if !loop.last %},{% endif %}
             {%- endfor %}
         ), options)
-        val result = client.callFunction("{{ fn.name }}", args)
+        val result = BamlRuntime.client.callFunction("{{ fn.name }}", args)
         @Suppress("UNCHECKED_CAST")
         return result as {{ fn.return_type.serialize_type(pkg) }}
     }

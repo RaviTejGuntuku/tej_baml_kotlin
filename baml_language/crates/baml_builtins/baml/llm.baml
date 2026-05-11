@@ -16,6 +16,7 @@ class OrchestrationStep {
 class ExecutionResult {
     ok bool
     value unknown
+    error_message string?
 }
 
 /// Immutable metadata shared across orchestration attempts.
@@ -169,6 +170,11 @@ function execute_client(
         ),
         r: baml.llm.RetryPolicy => {
             let current_delay = r.initial_delay_ms + 0.0;
+            let last_result = baml.llm.ExecutionResult {
+                ok: false,
+                value: null,
+                error_message: null,
+            };
 
             for (let attempt = 0; attempt <= r.max_retries; attempt += 1) {
                 let attempt_delay = inherited_delay_ms;
@@ -192,13 +198,15 @@ function execute_client(
                     context,
                     attempt_delay,
                 );
+                last_result = result;
 
                 if (result.ok) {
                     return result;
                 }
+
             }
 
-            baml.llm.ExecutionResult { ok: false, value: null }
+            last_result
         }
     }
 }
@@ -211,42 +219,63 @@ function execute_client_once(
 ) -> baml.llm.ExecutionResult {
     match (llm_client.client_type) {
         baml.llm.ClientType.Primitive => {
-            let resolve_fn = baml.llm.resolve_client(llm_client.name);
-            let primitive = resolve_fn();
+            {
+                let resolve_fn = baml.llm.resolve_client(llm_client.name);
+                let primitive = resolve_fn();
 
-            let prompt = primitive.render_prompt(context.jinja_string, context.args);
-            let specialized = primitive.specialize_prompt(prompt);
-            let http_request = primitive.build_request(specialized);
-            let http_response = baml.http.send(http_request);
-
-            if (http_response.ok()) {
-                let body = http_response.text();
                 let return_type = baml.llm.get_return_type(context.function_name);
-                return baml.llm.ExecutionResult {
-                    ok: true,
-                    value: primitive.parse(body, return_type),
-                };
-            }
+                let prompt = primitive.render_prompt(context.jinja_string, context.args, return_type);
+                let specialized = primitive.specialize_prompt(prompt);
+                let http_request = primitive.build_request(specialized, return_type);
+                let http_response = baml.http.send(http_request);
 
-            if (active_delay_ms > 0) {
-                baml.sys.sleep(active_delay_ms);
-            }
+                if (http_response.ok()) {
+                    let body = http_response.text();
+                    return baml.llm.ExecutionResult {
+                        ok: true,
+                        value: primitive.parse(body, return_type),
+                        error_message: null,
+                    };
+                }
 
-            baml.llm.ExecutionResult { ok: false, value: null }
+                let body = http_response.text();
+
+                if (active_delay_ms > 0) {
+                    baml.sys.sleep(active_delay_ms);
+                }
+
+                baml.llm.ExecutionResult {
+                    ok: false,
+                    value: null,
+                    error_message: body,
+                }
+            } catch (e) {
+                _ => baml.llm.ExecutionResult {
+                    ok: false,
+                    value: null,
+                    error_message: e,
+                }
+            }
         }
 
         baml.llm.ClientType.Fallback => {
+            let last_result = baml.llm.ExecutionResult {
+                ok: false,
+                value: null,
+                error_message: null,
+            };
             for (let sub in llm_client.sub_clients) {
                 let result = baml.llm.execute_client(
                     sub,
                     context,
                     active_delay_ms,
                 );
+                last_result = result;
                 if (result.ok) {
                     return result;
                 }
             }
-            baml.llm.ExecutionResult { ok: false, value: null }
+            last_result
         }
 
         baml.llm.ClientType.RoundRobin => {
@@ -271,7 +300,8 @@ function resolve_primitive(function_name: string) -> baml.llm.PrimitiveClient {
 function render_prompt(function_name: string, args: map<string, unknown>) -> baml.llm.PromptAst {
     let jinja_string = baml.llm.get_jinja_template(function_name);
     let primitive_client = baml.llm.resolve_primitive(function_name);
-    let prompt = primitive_client.render_prompt(jinja_string, args);
+    let return_type = baml.llm.get_return_type(function_name);
+    let prompt = primitive_client.render_prompt(jinja_string, args, return_type);
 
     return primitive_client.specialize_prompt(prompt);
 }
@@ -280,8 +310,8 @@ function render_prompt(function_name: string, args: map<string, unknown>) -> bam
 function build_request(function_name: string, args: map<string, unknown>) -> baml.http.Request {
     let primitive_client = baml.llm.resolve_primitive(function_name);
     let specialized_prompt = baml.llm.render_prompt(function_name, args);
-
-    return primitive_client.build_request(specialized_prompt);
+    let return_type = baml.llm.get_return_type(function_name);
+    return primitive_client.build_request(specialized_prompt, return_type);
 }
 
 /// Call an LLM function end-to-end with full orchestration.
@@ -306,5 +336,8 @@ function call_llm_function(function_name: string, args: map<string, unknown>) ->
         return result.value;
     }
 
-    throw "All orchestration steps failed";
+    match (result.error_message) {
+        null => throw "All orchestration steps failed",
+        msg: string => throw msg,
+    }
 }

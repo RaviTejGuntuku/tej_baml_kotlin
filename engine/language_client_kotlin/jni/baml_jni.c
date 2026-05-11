@@ -26,8 +26,9 @@ typedef void (*CallbackFn)(uint32_t call_id, int32_t is_done, const int8_t *cont
 typedef void (*OnTickCallbackFn)(uint32_t call_id);
 
 extern Buffer version(void);
-extern void *create_baml_runtime(const char *root_path, const char *src_files_json);
+extern void *create_baml_runtime(const char *root_path, const char *src_files_json, const char *env_vars_json);
 extern void destroy_baml_runtime(void *runtime);
+extern Buffer call_object_constructor(const char *encoded_args, size_t length);
 extern void register_callbacks(CallbackFn result_cb, CallbackFn error_cb, OnTickCallbackFn on_tick_cb);
 extern Buffer call_function_from_c(void *runtime, const char *function_name,
                                    const char *encoded_args, size_t length, uint32_t id);
@@ -189,15 +190,17 @@ Java_com_boundaryml_baml_JniBamlLib_nativeVersion(JNIEnv *env, jclass cls) {
 
 JNIEXPORT jlong JNICALL
 Java_com_boundaryml_baml_JniBamlLib_nativeCreateBamlRuntime(JNIEnv *env, jclass cls,
-                                                             jstring rootPath, jstring srcFilesJson) {
+                                                             jstring rootPath, jstring srcFilesJson, jstring envVarsJson) {
     (void)cls;
     const char *root = (*env)->GetStringUTFChars(env, rootPath, NULL);
     const char *src  = (*env)->GetStringUTFChars(env, srcFilesJson, NULL);
+    const char *env_vars = (*env)->GetStringUTFChars(env, envVarsJson, NULL);
 
-    void *ptr = create_baml_runtime(root, src);
+    void *ptr = create_baml_runtime(root, src, env_vars);
 
     (*env)->ReleaseStringUTFChars(env, rootPath, root);
     (*env)->ReleaseStringUTFChars(env, srcFilesJson, src);
+    (*env)->ReleaseStringUTFChars(env, envVarsJson, env_vars);
 
     return (jlong)(intptr_t)ptr;
 }
@@ -206,6 +209,20 @@ JNIEXPORT void JNICALL
 Java_com_boundaryml_baml_JniBamlLib_nativeDestroyBamlRuntime(JNIEnv *env, jclass cls, jlong runtime) {
     (void)env; (void)cls;
     destroy_baml_runtime((void *)(intptr_t)runtime);
+}
+
+JNIEXPORT jbyteArray JNICALL
+Java_com_boundaryml_baml_JniBamlLib_nativeCallObjectConstructor(JNIEnv *env, jclass cls,
+                                                                 jbyteArray encodedArgs) {
+    (void)cls;
+    jsize len = (*env)->GetArrayLength(env, encodedArgs);
+    jbyte *args = (*env)->GetByteArrayElements(env, encodedArgs, NULL);
+
+    Buffer buf = call_object_constructor((const char *)args, (size_t)len);
+
+    (*env)->ReleaseByteArrayElements(env, encodedArgs, args, JNI_ABORT);
+
+    return buffer_to_jbytearray(env, buf);
 }
 
 JNIEXPORT void JNICALL

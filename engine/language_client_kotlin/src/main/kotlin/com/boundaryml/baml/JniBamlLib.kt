@@ -28,7 +28,7 @@ internal class JniBamlLib : NativeBamlLib {
         //   Java_com_boundaryml_baml_JniBamlLib_nativeXxx
 
         @JvmStatic external fun nativeVersion(): ByteArray
-        @JvmStatic external fun nativeCreateBamlRuntime(rootPath: String, srcFilesJson: String): Long
+        @JvmStatic external fun nativeCreateBamlRuntime(rootPath: String, srcFilesJson: String, envVarsJson: String): Long
         @JvmStatic external fun nativeDestroyBamlRuntime(runtime: Long)
         @JvmStatic external fun nativeRegisterCallbacks(
             resultCallback: NativeResultCallback,
@@ -49,8 +49,8 @@ internal class JniBamlLib : NativeBamlLib {
 
     override fun version(): ByteArray = nativeVersion()
 
-    override fun createBamlRuntime(rootPath: String, srcFilesJson: String): Long {
-        val ptr = nativeCreateBamlRuntime(rootPath, srcFilesJson)
+    override fun createBamlRuntime(rootPath: String, srcFilesJson: String, envVarsJson: String): Long {
+        val ptr = nativeCreateBamlRuntime(rootPath, srcFilesJson, envVarsJson)
         if (ptr == 0L) throw BamlException("Failed to create BAML runtime")
         return ptr
     }

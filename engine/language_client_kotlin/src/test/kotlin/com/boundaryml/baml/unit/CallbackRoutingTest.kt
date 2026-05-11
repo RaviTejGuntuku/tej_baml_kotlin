@@ -158,8 +158,7 @@ class CallbackRoutingTest {
         CallbackManager.cleanupCallback(id, channel)
 
         assertEquals(initialCount - 1, CallbackManager.pendingCount())
-        // Channel should be closed
-        assertTrue(channel.isClosedForReceive)
+        assertTrue(channel.receiveCatching().isClosed)
     }
 
     @Test

@@ -12,6 +12,7 @@ function ClassifySentiment(text: string) -> Sentiment {
     client MyClient
     prompt #"
         Classify the sentiment of this text as POSITIVE, NEGATIVE, or NEUTRAL.
+        Return JSON with a single "value" field containing the enum string.
         Text: {{ text }}
 
         {{ ctx.output_format }}

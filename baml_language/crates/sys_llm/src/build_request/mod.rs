@@ -44,6 +44,7 @@ pub(crate) trait LlmRequestBuilder {
     fn build_prompt_body(
         &self,
         prompt: bex_vm_types::PromptAst,
+        output_type: &baml_type::Ty,
     ) -> serde_json::Map<String, serde_json::Value>;
 
     // --- Default methods (shared logic) ---
@@ -53,10 +54,11 @@ pub(crate) trait LlmRequestBuilder {
         &self,
         client: &LlmPrimitiveClient,
         prompt: bex_vm_types::PromptAst,
+        output_type: &baml_type::Ty,
     ) -> Result<RawHttpRequest, BuildRequestError> {
         let url = self.build_url(client)?;
         let headers = self.build_headers(client);
-        let body = self.build_body(client, prompt)?;
+        let body = self.build_body(client, prompt, output_type)?;
         Ok(RawHttpRequest {
             method: "POST".to_string(),
             url,
@@ -86,12 +88,13 @@ pub(crate) trait LlmRequestBuilder {
         &self,
         client: &LlmPrimitiveClient,
         prompt: bex_vm_types::PromptAst,
+        output_type: &baml_type::Ty,
     ) -> Result<String, BuildRequestError> {
         let mut body = serde_json::Map::new();
         if let Some(model) = get_string_option(client, "model") {
             body.insert("model".to_string(), serde_json::Value::String(model));
         }
-        body.extend(self.build_prompt_body(prompt));
+        body.extend(self.build_prompt_body(prompt, output_type));
         self.forward_options(client, &mut body);
         serde_json::to_string(&body).map_err(|e| BuildRequestError::InvalidOption {
             key: "body".into(),
@@ -127,6 +130,7 @@ pub(crate) trait LlmRequestBuilder {
 pub(crate) fn build_request(
     client: &LlmPrimitiveClient,
     prompt: bex_vm_types::PromptAst,
+    output_type: &baml_type::Ty,
 ) -> Result<builtin_types::owned::HttpRequest, BuildRequestError> {
     let provider = LlmProvider::from_str(&client.provider)
         .map_err(|_| BuildRequestError::UnsupportedLlmProvider(client.provider.clone()))?;
@@ -138,9 +142,11 @@ pub(crate) fn build_request(
         | LlmProvider::Ollama
         | LlmProvider::OpenRouter
         | LlmProvider::OpenAiResponses => {
-            openai::OpenAiBuilder::new(&provider).build_request(client, prompt)?
+            openai::OpenAiBuilder::new(&provider).build_request(client, prompt, output_type)?
         }
-        LlmProvider::Anthropic => anthropic::AnthropicBuilder.build_request(client, prompt)?,
+        LlmProvider::Anthropic => {
+            anthropic::AnthropicBuilder.build_request(client, prompt, output_type)?
+        }
         LlmProvider::GoogleAi
         | LlmProvider::VertexAi
         | LlmProvider::AwsBedrock
@@ -274,6 +280,19 @@ mod tests {
             content: Arc::new(text.to_string().into()),
             metadata: serde_json::Value::Null,
         })
+    }
+
+    fn string_ty() -> baml_type::Ty {
+        baml_type::Ty::String {
+            attr: baml_type::TyAttr::default(),
+        }
+    }
+
+    fn build_request(
+        client: &LlmPrimitiveClient,
+        prompt: Arc<PromptAst>,
+    ) -> Result<builtin_types::owned::HttpRequest, BuildRequestError> {
+        super::build_request(client, prompt, &string_ty())
     }
 
     /// Parse the body JSON from an `HttpRequest`.

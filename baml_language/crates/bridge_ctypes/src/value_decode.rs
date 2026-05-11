@@ -5,7 +5,8 @@
 
 use std::collections::HashMap;
 
-use bex_project::{BexExternalValue, Ty};
+use bex_project::{BexExternalAdt, BexExternalValue, MediaContent, MediaValue, Ty};
+use baml_type::MediaKind;
 use indexmap::IndexMap;
 
 use crate::{
@@ -112,6 +113,9 @@ fn convert_class(
             .unwrap_or(BexExternalValue::Null);
         fields.insert(key, value);
     }
+    if let Some(media) = convert_media_class(&class.name, &fields) {
+        return Ok(media);
+    }
     Ok(BexExternalValue::Instance {
         class_name: class.name,
         fields,
@@ -133,6 +137,62 @@ fn extract_string_key(entry: &InboundMapEntry) -> Result<String, CtypesError> {
         Some(Key::BoolKey(b)) => Ok(b.to_string()),
         Some(Key::EnumKey(e)) => Ok(format!("{}::{}", e.name, e.value)),
         None => Err(CtypesError::MapEntryMissingKey),
+    }
+}
+
+fn convert_media_class(
+    class_name: &str,
+    fields: &IndexMap<String, BexExternalValue>,
+) -> Option<BexExternalValue> {
+    let kind = match class_name {
+        "Image" => MediaKind::Image,
+        "Audio" => MediaKind::Audio,
+        "Pdf" => MediaKind::Pdf,
+        "Video" => MediaKind::Video,
+        _ => match get_string_field(fields, "media_type")?.as_str() {
+            "image" => MediaKind::Image,
+            "audio" => MediaKind::Audio,
+            "pdf" => MediaKind::Pdf,
+            "video" => MediaKind::Video,
+            _ => return None,
+        },
+    };
+
+    let mime_type = get_optional_string_field(fields, "mime_type");
+    let content = if let Some(url) = get_string_field(fields, "url") {
+        MediaContent::Url {
+            url,
+            base64_data: get_optional_string_field(fields, "base64"),
+        }
+    } else if let Some(base64_data) = get_string_field(fields, "base64") {
+        MediaContent::Base64 { base64_data }
+    } else {
+        return None;
+    };
+
+    Some(BexExternalValue::Adt(BexExternalAdt::Media(
+        MediaValue::new(kind, content, mime_type).into(),
+    )))
+}
+
+fn get_string_field(
+    fields: &IndexMap<String, BexExternalValue>,
+    key: &str,
+) -> Option<String> {
+    match fields.get(key) {
+        Some(BexExternalValue::String(value)) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn get_optional_string_field(
+    fields: &IndexMap<String, BexExternalValue>,
+    key: &str,
+) -> Option<String> {
+    match fields.get(key) {
+        Some(BexExternalValue::String(value)) => Some(value.clone()),
+        Some(BexExternalValue::Null) | None => None,
+        _ => None,
     }
 }
 

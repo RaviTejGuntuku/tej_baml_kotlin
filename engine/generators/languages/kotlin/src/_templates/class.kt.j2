@@ -24,11 +24,10 @@ data class {{ name }}(
     override fun bamlTypeName(): String = "{{ name }}"
 
     companion object : BamlDeserializable<{{ name }}> {
-        @Suppress("UNCHECKED_CAST")
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): {{ name }} {
             return {{ name }}(
                 {% for field in fields -%}
-                {{ field.name }} = fields["{{ field.name }}"] as {{ field.type.serialize_type(pkg) }}{% if !loop.last %},{% endif %}
+                {{ field.name }} = {{ field.type.decode_field_expr(field.name, pkg) }}{% if !loop.last %},{% endif %}
                 {%- endfor %}
             )
         }

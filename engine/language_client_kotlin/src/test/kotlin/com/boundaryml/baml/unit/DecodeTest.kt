@@ -375,6 +375,43 @@ class DecodeTest {
         assertEquals("user1@test.com", user1.fields["email"])
     }
 
+    @Test
+    fun `coerce named type decodes nested list of maps into registered classes`() {
+        val typeMap = BamlTypeMap().apply {
+            register("TYPES", "LineItem", TestLineItem::class, TestLineItem)
+            register("TYPES", "ShoppingPlan", TestShoppingPlan::class, TestShoppingPlan)
+        }
+
+        val shoppingPlan = Serde.coerceNamedType<TestShoppingPlan>(
+            mapOf(
+                "items" to listOf(
+                    mapOf("name" to "spinach", "quantity" to 2L),
+                    mapOf("name" to "eggs", "quantity" to 12L),
+                ),
+                "note" to "buy organic"
+            ),
+            typeMap,
+            "TYPES",
+            "ShoppingPlan"
+        )
+
+        assertEquals(2, shoppingPlan.items.size)
+        assertEquals("spinach", shoppingPlan.items[0].name)
+        assertEquals(2L, shoppingPlan.items[0].quantity)
+        assertEquals("buy organic", shoppingPlan.note)
+    }
+
+    @Test
+    fun `coerce enum resolves dynamic enum into concrete enum`() {
+        val result = Serde.coerceEnum<TestColorOut>(
+            DynamicBamlEnum("Color", "GREEN"),
+            "TYPES",
+            "Color"
+        )
+
+        assertEquals(TestColorOut.GREEN, result)
+    }
+
 }
 
 // Test types for decode
@@ -385,6 +422,30 @@ data class TestPersonOut(val name: String, val age: Int) {
             return TestPersonOut(
                 name = fields["name"] as String,
                 age = (fields["age"] as Long).toInt()
+            )
+        }
+    }
+}
+
+data class TestLineItem(val name: String, val quantity: Long) {
+    companion object : BamlDeserializable<TestLineItem> {
+        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): TestLineItem {
+            return TestLineItem(
+                name = Serde.coerceString(Serde.requireField(fields, "name")),
+                quantity = Serde.coerceLong(Serde.requireField(fields, "quantity"))
+            )
+        }
+    }
+}
+
+data class TestShoppingPlan(val items: List<TestLineItem>, val note: String?) {
+    companion object : BamlDeserializable<TestShoppingPlan> {
+        override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): TestShoppingPlan {
+            return TestShoppingPlan(
+                items = Serde.coerceList(Serde.requireField(fields, "items")) { item ->
+                    Serde.coerceNamedType(item, typeMap, "TYPES", "LineItem")
+                },
+                note = Serde.coerceNullable(fields["note"]) { value -> Serde.coerceString(value) }
             )
         }
     }

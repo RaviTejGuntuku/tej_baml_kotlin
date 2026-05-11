@@ -43,6 +43,9 @@ pub fn execute_render_prompt_from_owned(
     client: &builtin_types::owned::LlmPrimitiveClient,
     template: &str,
     args: &BexExternalValue,
+    output_type: &baml_type::Ty,
+    classes: &std::collections::HashMap<String, bex_vm_types::Class>,
+    enums: &std::collections::HashMap<String, bex_vm_types::Enum>,
 ) -> Result<bex_vm_types::PromptAst, LlmOpError> {
     let BexExternalValue::Map {
         entries: template_args,
@@ -55,6 +58,8 @@ pub fn execute_render_prompt_from_owned(
         });
     };
 
+    let output_format = build_output_format_content(output_type, classes, enums);
+
     let render_ctx = jinja::RenderContext {
         client: jinja::RenderContextClient {
             name: client.name.clone(),
@@ -62,9 +67,7 @@ pub fn execute_render_prompt_from_owned(
             default_role: client.default_role.clone(),
             allowed_roles: client.allowed_roles.clone(),
         },
-        output_format: types::OutputFormatContent::new(bex_external_types::Ty::String {
-            attr: baml_type::TyAttr::default(),
-        }),
+        output_format,
         tags: indexmap::IndexMap::new(),
         enums: std::collections::HashMap::new(),
     };
@@ -72,6 +75,45 @@ pub fn execute_render_prompt_from_owned(
     let prompt_ast = jinja::render_prompt(template, template_args, &render_ctx)
         .map_err(|e| LlmOpError::RenderPrompt(e.to_string()))?;
     Ok(std::sync::Arc::new(prompt_ast))
+}
+
+fn build_output_format_content(
+    output_type: &baml_type::Ty,
+    classes: &std::collections::HashMap<String, bex_vm_types::Class>,
+    enums: &std::collections::HashMap<String, bex_vm_types::Enum>,
+) -> types::OutputFormatContent {
+    let mut content = types::OutputFormatContent::new(output_type.clone());
+
+    for class in classes.values() {
+        content = content.with_class(types::Class {
+            name: class.name.clone(),
+            description: class.description.clone(),
+            fields: class
+                .fields
+                .iter()
+                .map(|field| {
+                    (
+                        field.name.clone(),
+                        field.field_type.clone(),
+                        field.description.clone(),
+                    )
+                })
+                .collect(),
+        });
+    }
+
+    for enm in enums.values() {
+        content = content.with_enum(types::Enum {
+            name: enm.name.clone(),
+            values: enm
+                .variants
+                .iter()
+                .map(|variant| (variant.name.clone(), variant.description.clone()))
+                .collect(),
+        });
+    }
+
+    content
 }
 
 /// Specialize a prompt for a provider given already-extracted owned types.
@@ -88,8 +130,12 @@ pub fn execute_specialize_prompt_from_owned(
 pub fn execute_build_request_from_owned(
     client: &builtin_types::owned::LlmPrimitiveClient,
     prompt: bex_vm_types::PromptAst,
+    output_type: &baml_type::Ty,
+    _classes: &std::collections::HashMap<String, bex_vm_types::Class>,
+    _enums: &std::collections::HashMap<String, bex_vm_types::Enum>,
 ) -> Result<builtin_types::owned::HttpRequest, LlmOpError> {
-    build_request::build_request(client, prompt).map_err(|e| LlmOpError::Other(e.to_string()))
+    build_request::build_request(client, prompt, output_type)
+        .map_err(|e| LlmOpError::Other(e.to_string()))
 }
 
 /// Parse an LLM response and extract the return value given already-extracted owned types.
@@ -124,29 +170,101 @@ pub fn execute_parse_response_from_owned(
             .map(BexExternalValue::Bool)
             .map_err(|e| LlmOpError::ParseResponseError(format!("Expected bool: {e}"))),
         _ => {
-            // For structured types (Class, Enum, List, etc.), extract JSON from
-            // the LLM response (which may be wrapped in markdown code blocks).
-            let json_str = extract_json(&response.content);
-            let json: serde_json::Value = serde_json::from_str(json_str)
-                .map_err(|e| LlmOpError::ParseResponseError(
-                    format!("Failed to parse JSON from LLM response: {e}\nContent: {:?}", response.content)
-                ))?;
-            json_to_bex_value(&json, return_type)
+            let mut last_error = None;
+            for candidate in extract_json_candidates(&response.content) {
+                match serde_json::from_str::<serde_json::Value>(candidate) {
+                    Ok(json) => return json_to_bex_value(&json, return_type),
+                    Err(err) => last_error = Some(err),
+                }
+            }
+            Err(LlmOpError::ParseResponseError(format!(
+                "Failed to parse JSON from LLM response: {}\nContent: {:?}",
+                last_error
+                    .map(|e| e.to_string())
+                    .unwrap_or_else(|| "no JSON candidate found".to_string()),
+                response.content
+            )))
         }
     }
 }
 
-/// Extract JSON from LLM response text, stripping markdown code fences if present.
-fn extract_json(content: &str) -> &str {
+fn extract_json_candidates(content: &str) -> Vec<&str> {
     let trimmed = content.trim();
-    // Strip ```json ... ``` or ``` ... ```
-    if let Some(rest) = trimmed.strip_prefix("```json") {
-        rest.strip_suffix("```").unwrap_or(rest).trim()
-    } else if let Some(rest) = trimmed.strip_prefix("```") {
-        rest.strip_suffix("```").unwrap_or(rest).trim()
-    } else {
-        trimmed
+    let mut candidates = Vec::new();
+
+    if !trimmed.is_empty() {
+        candidates.push(trimmed);
     }
+
+    if let Some(fenced) = strip_fenced_json(trimmed) {
+        if fenced != trimmed {
+            candidates.push(fenced);
+        }
+    }
+
+    if let Some(span) = find_balanced_json_span(trimmed) {
+        let candidate = &trimmed[span];
+        if !candidates.contains(&candidate) {
+            candidates.push(candidate);
+        }
+    }
+
+    candidates
+}
+
+fn strip_fenced_json(content: &str) -> Option<&str> {
+    if let Some(rest) = content.strip_prefix("```json") {
+        return Some(rest.strip_suffix("```").unwrap_or(rest).trim());
+    }
+    if let Some(rest) = content.strip_prefix("```") {
+        return Some(rest.strip_suffix("```").unwrap_or(rest).trim());
+    }
+    None
+}
+
+fn find_balanced_json_span(content: &str) -> Option<std::ops::Range<usize>> {
+    let bytes = content.as_bytes();
+    let mut start = None;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (idx, byte) in bytes.iter().copied().enumerate() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match byte {
+                b'\\' => escaped = true,
+                b'"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => {
+                if start.is_none() {
+                    start = Some(idx);
+                }
+                depth += 1;
+            }
+            b'}' | b']' => {
+                if depth == 0 {
+                    continue;
+                }
+                depth -= 1;
+                if depth == 0 {
+                    return start.map(|begin| begin..idx + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
 }
 
 /// Convert a serde_json::Value into a BexExternalValue guided by the expected type.
@@ -291,7 +409,7 @@ mod tests {
     use bex_external_types::BexExternalValue;
     use bex_heap::builtin_types::owned::LlmPrimitiveClient;
 
-    use super::execute_parse_response_from_owned;
+    use super::{execute_parse_response_from_owned, extract_json_candidates};
 
     fn make_client_with_options(
         options: indexmap::IndexMap<String, BexExternalValue>,
@@ -376,5 +494,17 @@ mod tests {
             },
         );
         assert!(denied.is_err());
+    }
+
+    #[test]
+    fn extracts_json_from_fenced_or_embedded_content() {
+        let fenced = "```json\n{\"value\":1}\n```";
+        assert_eq!(extract_json_candidates(fenced), vec![fenced, "{\"value\":1}"]);
+
+        let embedded = "Here is the result:\n{\"value\":1}\nThanks";
+        assert_eq!(
+            extract_json_candidates(embedded),
+            vec![embedded, "{\"value\":1}"]
+        );
     }
 }

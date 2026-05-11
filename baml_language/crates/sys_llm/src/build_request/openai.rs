@@ -3,10 +3,11 @@
 //! Supports: `OpenAi`, `OpenAiGeneric`, `AzureOpenAi`, Ollama, `OpenRouter`.
 
 use baml_builtins::PromptAst;
+use baml_type::Ty;
 use indexmap::IndexMap;
 
 use super::{BuildRequestError, LlmPrimitiveClient, LlmRequestBuilder, get_string_option};
-use crate::{LlmProvider, build_request::prompt_to_content_parts_simple};
+use crate::LlmProvider;
 
 /// Builder for OpenAI-compatible providers.
 pub(crate) struct OpenAiBuilder<'a> {
@@ -59,11 +60,47 @@ impl LlmRequestBuilder for OpenAiBuilder<'_> {
     fn build_prompt_body(
         &self,
         prompt: bex_vm_types::PromptAst,
+        output_type: &Ty,
     ) -> serde_json::Map<String, serde_json::Value> {
         let mut map = serde_json::Map::new();
         let messages = prompt_to_openai_messages(&prompt);
         map.insert("messages".to_string(), serde_json::Value::Array(messages));
+        if requires_json_object_response(output_type) {
+            map.insert(
+                "response_format".to_string(),
+                serde_json::json!({ "type": "json_object" }),
+            );
+        }
         map
+    }
+}
+
+fn requires_json_object_response(output_type: &Ty) -> bool {
+    !matches!(
+        output_type,
+        Ty::Null { .. }
+            | Ty::Int { .. }
+            | Ty::Float { .. }
+            | Ty::Bool { .. }
+            | Ty::String { .. }
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::requires_json_object_response;
+
+    #[test]
+    fn enables_json_object_for_structured_outputs() {
+        assert!(requires_json_object_response(&baml_type::Ty::List(
+            Box::new(baml_type::Ty::String {
+                attr: baml_type::TyAttr::default(),
+            }),
+            baml_type::TyAttr::default(),
+        )));
+        assert!(!requires_json_object_response(&baml_type::Ty::String {
+            attr: baml_type::TyAttr::default(),
+        }));
     }
 }
 
@@ -76,45 +113,61 @@ impl LlmRequestBuilder for OpenAiBuilder<'_> {
 fn prompt_to_openai_messages(prompt: &bex_vm_types::PromptAst) -> Vec<serde_json::Value> {
     match prompt.as_ref() {
         PromptAst::Vec(items) => {
-            let messages: Vec<_> = items.iter().filter_map(prompt_node_to_message).collect();
-            if messages.is_empty() {
-                // If no Message nodes found, wrap the whole thing as a user message
-                vec![wrap_as_user_message(prompt)]
-            } else {
-                messages
+            let mut messages = Vec::new();
+            let mut pending_non_messages: Vec<bex_vm_types::PromptAst> = Vec::new();
+
+            for item in items {
+                if let Some(message) = prompt_node_to_message(item) {
+                    if !pending_non_messages.is_empty() {
+                        let role = if messages.is_empty() { "system" } else { "user" };
+                        messages.push(wrap_as_message(
+                            &std::sync::Arc::new(PromptAst::Vec(pending_non_messages)),
+                            role,
+                        ));
+                        pending_non_messages = Vec::new();
+                    }
+                    messages.push(message);
+                } else {
+                    pending_non_messages.push(item.clone());
+                }
             }
+
+            if !pending_non_messages.is_empty() {
+                messages.push(wrap_as_message(
+                    &std::sync::Arc::new(PromptAst::Vec(pending_non_messages)),
+                    "user",
+                ));
+            }
+
+            messages
         }
         PromptAst::Message { .. } => prompt_node_to_message(prompt).into_iter().collect(),
         PromptAst::Simple(_) => {
             // Plain text prompt without role markers — wrap as a user message
-            vec![wrap_as_user_message(prompt)]
+            vec![wrap_as_message(prompt, "user")]
         }
     }
 }
 
-/// Wrap a non-Message PromptAst as a simple user message.
-fn wrap_as_user_message(prompt: &bex_vm_types::PromptAst) -> serde_json::Value {
-    let text = match prompt.as_ref() {
-        PromptAst::Simple(content) => prompt_ast_simple_to_string(content),
-        other => format!("{:?}", other),
-    };
+/// Wrap a non-Message PromptAst as a message with provider content parts.
+fn wrap_as_message(prompt: &bex_vm_types::PromptAst, role: &str) -> serde_json::Value {
     let mut msg = serde_json::Map::new();
-    msg.insert("role".to_string(), serde_json::Value::String("user".to_string()));
+    msg.insert("role".to_string(), serde_json::Value::String(role.to_string()));
     msg.insert(
         "content".to_string(),
-        serde_json::Value::Array(vec![serde_json::json!({"type": "text", "text": text})]),
+        serde_json::Value::Array(prompt_node_to_openai_content_parts(prompt)),
     );
     serde_json::Value::Object(msg)
 }
 
-/// Extract plain text from a PromptAstSimple.
-fn prompt_ast_simple_to_string(simple: &baml_builtins::PromptAstSimple) -> String {
-    match simple {
-        baml_builtins::PromptAstSimple::String(s) => s.clone(),
-        baml_builtins::PromptAstSimple::Multiple(parts) => {
-            parts.iter().map(|p| prompt_ast_simple_to_string(p)).collect::<Vec<_>>().join("")
-        }
-        baml_builtins::PromptAstSimple::Media(_) => "[media]".to_string(),
+fn prompt_node_to_openai_content_parts(node: &bex_vm_types::PromptAst) -> Vec<serde_json::Value> {
+    match node.as_ref() {
+        PromptAst::Simple(content) => prompt_to_openai_content_parts_simple(content),
+        PromptAst::Vec(items) => items
+            .iter()
+            .flat_map(|item| prompt_node_to_openai_content_parts(item))
+            .collect(),
+        PromptAst::Message { content, .. } => prompt_to_openai_content_parts_simple(content.as_ref()),
     }
 }
 
@@ -125,7 +178,7 @@ fn prompt_node_to_message(node: &bex_vm_types::PromptAst) -> Option<serde_json::
             content,
             metadata,
         } => {
-            let content_parts = prompt_to_content_parts_simple(content.as_ref());
+            let content_parts = prompt_to_openai_content_parts_simple(content.as_ref());
             let mut msg = serde_json::Map::new();
             msg.insert("role".to_string(), serde_json::Value::String(role.clone()));
 
@@ -142,5 +195,41 @@ fn prompt_node_to_message(node: &bex_vm_types::PromptAst) -> Option<serde_json::
             Some(serde_json::Value::Object(msg))
         }
         _ => None, // Skip non-message nodes at top level
+    }
+}
+
+fn prompt_to_openai_content_parts_simple(
+    content: &baml_builtins::PromptAstSimple,
+) -> Vec<serde_json::Value> {
+    match content {
+        baml_builtins::PromptAstSimple::String(s) => {
+            vec![serde_json::json!({"type": "text", "text": s})]
+        }
+        baml_builtins::PromptAstSimple::Media(media) => {
+            media.read_content(|f| match f {
+                baml_builtins::MediaContent::Url { url, .. } => {
+                    vec![serde_json::json!({"type": "image_url", "image_url": {"url": url}})]
+                }
+                baml_builtins::MediaContent::Base64 { base64_data, .. } => {
+                    vec![serde_json::json!({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": format!(
+                                "data:{};base64,{}",
+                                media.mime_type.as_deref().unwrap_or("image/png"),
+                                base64_data
+                            )
+                        }
+                    })]
+                }
+                baml_builtins::MediaContent::File { file, .. } => {
+                    vec![serde_json::json!({"type": "file", "file_id": file})]
+                }
+            })
+        }
+        baml_builtins::PromptAstSimple::Multiple(parts) => parts
+            .iter()
+            .flat_map(|part| prompt_to_openai_content_parts_simple(part.as_ref()))
+            .collect(),
     }
 }

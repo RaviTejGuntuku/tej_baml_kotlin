@@ -209,6 +209,8 @@ impl LanguageFeatures for KotlinLanguageFeatures {
 
 #[cfg(test)]
 mod tests {
+    use internal_baml_core::ir::repr::make_test_ir;
+
     #[test]
     fn test_name() {
         use std::str::FromStr;
@@ -219,6 +221,55 @@ mod tests {
             baml_types::GeneratorOutputType::from_str(crate::KotlinLanguageFeatures::name())
                 .expect("KotlinLanguageFeatures name should be a valid GeneratorOutputType");
         assert_eq!(gen_type, baml_types::GeneratorOutputType::Kotlin);
+    }
+
+    #[test]
+    fn runtime_template_passes_env_vars_and_registers_types() {
+        let ir = std::sync::Arc::new(
+            make_test_ir(
+                r##"
+                function GetGreeting(name: string) -> string {
+                    client "openai/gpt-4o"
+                    prompt #"Say hello to {{ name }}"#
+                }
+                "##,
+            )
+            .unwrap(),
+        );
+        let rendered = crate::functions::render_runtime_code(
+            &crate::package::CurrentRenderPackage::new("baml_client", ir),
+        )
+        .unwrap();
+
+        assert!(rendered.contains("val typeMap = BamlTypeMap().also(::registerBamlTypes)"));
+        assert!(rendered.contains("envVars = envVars"));
+        assert!(rendered.contains("typeMap = typeMap"));
+    }
+
+    #[test]
+    fn function_template_uses_generated_runtime_client() {
+        let ir = std::sync::Arc::new(
+            make_test_ir(
+                r##"
+                function GetGreeting(name: string) -> string {
+                    client "openai/gpt-4o"
+                    prompt #"Say hello to {{ name }}"#
+                }
+                "##,
+            )
+            .unwrap(),
+        );
+        let pkg = crate::package::CurrentRenderPackage::new("baml_client", ir);
+        let fn_model = crate::functions::FunctionKotlin {
+            documentation: None,
+            name: "TestFn".to_string(),
+            args: vec![],
+            return_type: crate::r#type::TypeKotlin::String(None),
+            stream_return_type: crate::r#type::TypeKotlin::String(None),
+        };
+
+        let rendered = crate::functions::render_functions(&[fn_model], &pkg).unwrap();
+        assert!(rendered.contains("BamlRuntime.client.callFunction(\"TestFn\", args)"));
     }
 }
 
@@ -574,6 +625,38 @@ mod render_tests {
     }
 
     #[test]
+    fn test_render_nested_class_collection_decode_uses_sdk_coercion() {
+        let files = render_all(
+            r##"
+            class LineItem {
+                sku string
+                quantity int
+            }
+            class ShoppingPlan {
+                items LineItem[]
+                note string?
+            }
+            function BuildPlan(input: string) -> ShoppingPlan {
+                client "openai/gpt-4o"
+                prompt #"{{ input }}"#
+            }
+            "##,
+        );
+
+        let classes = get_file(&files, "types/Classes.kt");
+        assert!(
+            classes.contains("items = Serde.coerceList(Serde.requireField(fields, \"items\"))"),
+            "Nested class list should use Serde.coerceList: {}",
+            classes
+        );
+        assert!(
+            classes.contains("Serde.coerceNamedType<LineItem>(item, typeMap, \"TYPES\", \"LineItem\")"),
+            "Nested class list items should use Serde.coerceNamedType: {}",
+            classes
+        );
+    }
+
+    #[test]
     fn test_render_union_type() {
         let files = render_all(
             r##"
@@ -830,6 +913,16 @@ mod render_tests {
                 total float
             }
 
+            class LineItem {
+                sku string
+                quantity int
+            }
+
+            class ShoppingPlan {
+                items LineItem[]
+                note string?
+            }
+
             class SearchResult {
                 query string
                 result int | string
@@ -858,6 +951,11 @@ mod render_tests {
             function Search(query: string) -> SearchResult {
                 client "openai/gpt-4o"
                 prompt #"Search: {{ query }}"#
+            }
+
+            function BuildShoppingPlan(text: string) -> ShoppingPlan {
+                client "openai/gpt-4o"
+                prompt #"Build plan: {{ text }}"#
             }
         "##;
 

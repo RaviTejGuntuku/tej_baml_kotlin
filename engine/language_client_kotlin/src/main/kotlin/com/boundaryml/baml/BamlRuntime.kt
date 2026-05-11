@@ -35,6 +35,7 @@ class BamlRuntime private constructor(
         fun create(
             rootPath: String,
             srcFiles: Map<String, String>,
+            envVars: Map<String, String> = emptyMap(),
             typeMap: BamlTypeMap = BamlTypeMap()
         ): BamlRuntime {
             val ffi = BamlFfi.instance ?: throw BamlException("FFI not loaded. Call BamlFfi.load() first.")
@@ -53,8 +54,9 @@ class BamlRuntime private constructor(
             CallbackManager.typeMap = typeMap
 
             val srcFilesJson = gson.toJson(srcFiles)
+            val envVarsJson = gson.toJson(envVars)
 
-            val runtimePtr = ffi.createBamlRuntime(rootPath, srcFilesJson)
+            val runtimePtr = ffi.createBamlRuntime(rootPath, srcFilesJson, envVarsJson)
             return BamlRuntime(runtimePtr)
         }
     }

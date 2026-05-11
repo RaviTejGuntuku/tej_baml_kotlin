@@ -10,12 +10,11 @@ sealed class Union2IntOrString {
 
     companion object : BamlDeserializable<Union2IntOrString> {
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): Union2IntOrString {
-            val variantName = fields["variant_name"] as? String
-                ?: throw IllegalArgumentException("Missing variant_name in union Union2IntOrString")
-            val value = fields["value"]
+            val variantName = Serde.coerceString(Serde.requireField(fields, "variant_name"))
+            val value = Serde.requireField(fields, "value")
             return when (variantName) {
-                "int" -> IntVal(value as Long)
-                "string" -> StringVal(value as String)
+                "int" -> IntVal(Serde.coerceLong(value))
+                "string" -> StringVal(Serde.coerceString(value))
                 else -> throw IllegalArgumentException("Unknown variant '$variantName' for union Union2IntOrString")
             }
         }

@@ -8,12 +8,11 @@ sealed class {{ name }} {
 
     companion object : BamlDeserializable<{{ name }}> {
         override fun decode(fields: Map<String, Any?>, typeMap: BamlTypeMap): {{ name }} {
-            val variantName = fields["variant_name"] as? String
-                ?: throw IllegalArgumentException("Missing variant_name in union {{ name }}")
-            val value = fields["value"]
+            val variantName = Serde.coerceString(Serde.requireField(fields, "variant_name"))
+            val value = Serde.requireField(fields, "value")
             return when (variantName) {
                 {% for variant in variants -%}
-                "{{ variant.cffi_name }}" -> {{ variant.name }}(value as {{ variant.type_.serialize_type(pkg) }})
+                "{{ variant.cffi_name }}" -> {{ variant.name }}({{ variant.type_.decode_expr("value", pkg) }})
                 {% endfor -%}
                 else -> throw IllegalArgumentException("Unknown variant '$variantName' for union {{ name }}")
             }

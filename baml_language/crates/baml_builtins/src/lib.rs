@@ -397,8 +397,9 @@ macro_rules! with_builtins {
                         /// Render a Jinja template with the given arguments.
                         /// Returns a structured PromptAst that can be sent to an LLM.
                         #[sys_op]
+                        #[uses(engine_ctx)]
                         #[throws(RenderPrompt)]
-                        fn render_prompt(self: PrimitiveClient, template: String, args: Map<String, Unknown>) -> PromptAst;
+                        fn render_prompt(self: PrimitiveClient, template: String, args: Map<String, Unknown>, output_type: Type) -> PromptAst;
 
                         /// Specialize a prompt for this client's provider.
                         /// Applies provider-specific transformations (message merging, system prompt
@@ -410,8 +411,9 @@ macro_rules! with_builtins {
                         /// Build an HTTP request from a specialized prompt.
                         /// Creates a provider-specific HTTP request ready to be sent.
                         #[sys_op]
+                        #[uses(engine_ctx)]
                         #[throws(LlmClient)]
-                        fn build_request(self: PrimitiveClient, prompt: PromptAst) -> Request;
+                        fn build_request(self: PrimitiveClient, prompt: PromptAst, output_type: Type) -> Request;
 
                         /// Parse an HTTP response into a BAML value.
                         /// Interprets the provider-specific response format and parses the output.

@@ -8,6 +8,185 @@ import com.boundaryml.baml.cffi.*
  */
 object Serde {
 
+    fun requireField(fields: Map<String, Any?>, fieldName: String): Any? {
+        if (!fields.containsKey(fieldName)) {
+            throw BamlException("Missing required field '$fieldName'")
+        }
+        return fields[fieldName]
+    }
+
+    fun expectNull(value: Any?): Nothing? {
+        if (value != null) {
+            throw BamlException("Expected null but received ${describeValue(value)}")
+        }
+        return null
+    }
+
+    fun coerceString(value: Any?): String {
+        return value as? String
+            ?: throw BamlException("Expected String but received ${describeValue(value)}")
+    }
+
+    fun coerceLong(value: Any?): Long {
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Short -> value.toLong()
+            is Byte -> value.toLong()
+            else -> throw BamlException("Expected Long but received ${describeValue(value)}")
+        }
+    }
+
+    fun coerceDouble(value: Any?): Double {
+        return when (value) {
+            is Double -> value
+            is Float -> value.toDouble()
+            is Int -> value.toDouble()
+            is Long -> value.toDouble()
+            is Short -> value.toDouble()
+            is Byte -> value.toDouble()
+            else -> throw BamlException("Expected Double but received ${describeValue(value)}")
+        }
+    }
+
+    fun coerceBoolean(value: Any?): Boolean {
+        return value as? Boolean
+            ?: throw BamlException("Expected Boolean but received ${describeValue(value)}")
+    }
+
+    inline fun <reified T> coerceNullable(value: Any?, coercer: (Any?) -> T): T? {
+        return if (value == null) null else coercer(value)
+    }
+
+    inline fun <reified T> coerceList(value: Any?, coercer: (Any?) -> T): List<T> {
+        val list = value as? List<*>
+            ?: throw BamlException("Expected List but received ${describeValue(value)}")
+        return list.mapIndexed { index, item ->
+            try {
+                coercer(item)
+            } catch (e: Exception) {
+                throw BamlException("Failed to decode list item at index $index", e)
+            }
+        }
+    }
+
+    inline fun <reified K, reified V> coerceMap(
+        value: Any?,
+        keyCoercer: (Any?) -> K,
+        valueCoercer: (Any?) -> V
+    ): Map<K, V> {
+        val map = value as? Map<*, *>
+            ?: throw BamlException("Expected Map but received ${describeValue(value)}")
+        return LinkedHashMap<K, V>(map.size).also { decoded ->
+            map.entries.forEach { (key, entryValue) ->
+                try {
+                    decoded[keyCoercer(key)] = valueCoercer(entryValue)
+                } catch (e: Exception) {
+                    throw BamlException("Failed to decode map entry for key ${describeValue(key)}", e)
+                }
+            }
+        }
+    }
+
+    inline fun <reified T : Any> coerceInstance(value: Any?): T {
+        return value as? T
+            ?: throw BamlException("Expected ${T::class.simpleName} but received ${describeValue(value)}")
+    }
+
+    inline fun <reified T : Any> coerceNamedType(
+        value: Any?,
+        typeMap: BamlTypeMap,
+        namespace: String,
+        name: String
+    ): T {
+        if (value is T) {
+            return value
+        }
+
+        val fields = when (value) {
+            is DynamicBamlClass -> {
+                if (value.name != name) {
+                    throw BamlException("Expected $name but received dynamic class ${value.name}")
+                }
+                value.fields
+            }
+            is DynamicBamlUnion -> mapOf(
+                "variant_name" to value.variantName,
+                "value" to value.value
+            )
+            is Map<*, *> -> value.entries.associate { (key, entryValue) ->
+                (key as? String
+                    ?: throw BamlException("Expected String map key while decoding $name but received ${describeValue(key)}")) to entryValue
+            }
+            else -> throw BamlException("Expected $name but received ${describeValue(value)}")
+        }
+
+        val deserializer = typeMap.getDeserializer(namespace, name)
+            ?: throw BamlException("No registered deserializer for $namespace.$name")
+
+        @Suppress("UNCHECKED_CAST")
+        return (deserializer as BamlDeserializable<T>).decode(fields, typeMap)
+    }
+
+    inline fun <reified T : Enum<T>> coerceEnum(
+        value: Any?,
+        namespace: String,
+        name: String
+    ): T {
+        if (value is T) {
+            return value
+        }
+
+        val enumValue = when (value) {
+            is DynamicBamlEnum -> {
+                if (value.name != name) {
+                    throw BamlException("Expected enum $name but received ${value.name}")
+                }
+                value.value
+            }
+            is String -> value
+            else -> throw BamlException("Expected enum $name but received ${describeValue(value)}")
+        }
+
+        return enumValues<T>().firstOrNull { it.name == enumValue }
+            ?: throw BamlException("Unknown enum value '$enumValue' for $namespace.$name")
+    }
+
+    inline fun <reified T> coerceChecked(
+        value: Any?,
+        valueCoercer: (Any?) -> T
+    ): Checked<T> {
+        val checked = value as? Checked<*>
+            ?: throw BamlException("Expected Checked value but received ${describeValue(value)}")
+        return Checked(
+            value = valueCoercer(checked.value),
+            checks = checked.checks
+        )
+    }
+
+    inline fun <reified T> coerceStreamState(
+        value: Any?,
+        valueCoercer: (Any?) -> T
+    ): StreamState<T> {
+        return when (val state = value as? StreamState<*>
+            ?: throw BamlException("Expected StreamState but received ${describeValue(value)}")) {
+            StreamState.Pending -> StreamState.Pending
+            is StreamState.Started<*> -> StreamState.Started(valueCoercer(state.value))
+            is StreamState.Done<*> -> StreamState.Done(valueCoercer(state.value))
+        }
+    }
+
+    @PublishedApi
+    internal fun describeValue(value: Any?): String {
+        return when (value) {
+            null -> "null"
+            is DynamicBamlClass -> "DynamicBamlClass(${value.name})"
+            is DynamicBamlEnum -> "DynamicBamlEnum(${value.name}.${value.value})"
+            is DynamicBamlUnion -> "DynamicBamlUnion(${value.name}.${value.variantName})"
+            else -> value::class.qualifiedName ?: value::class.simpleName ?: value.toString()
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Encoding: Kotlin → HostValue (inbound to engine)
     // -------------------------------------------------------------------------

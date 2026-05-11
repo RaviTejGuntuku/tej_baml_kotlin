@@ -7,7 +7,7 @@
             "text" to text,
             "stream" to false
         ), options)
-        val result = client.callFunctionParse("{{ fn.name }}", args)
+        val result = BamlRuntime.client.callFunctionParse("{{ fn.name }}", args)
         @Suppress("UNCHECKED_CAST")
         return result as {{ fn.return_type.serialize_type(pkg) }}
     }

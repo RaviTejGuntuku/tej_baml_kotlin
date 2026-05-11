@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 class FunctionCallTest {
 
@@ -39,12 +38,8 @@ class FunctionCallTest {
     }
 
     private suspend fun assertCallCompletes(client: BamlClient, functionName: String, args: ByteArray) {
-        try {
-            val result = client.callFunction(functionName, args)
-            assertNotNull(result, "$functionName should return a non-null result")
-        } catch (e: BamlException) {
-            assertTrue(e.message?.isNotEmpty() == true, "$functionName: BamlException should have a message")
-        }
+        val result = client.callFunction(functionName, args)
+        assertNotNull(result, "$functionName should return a non-null result")
     }
 
     @Test
