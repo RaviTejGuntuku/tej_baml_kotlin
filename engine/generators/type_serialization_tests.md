@@ -201,8 +201,8 @@ class T { f image }
 
 ### Kotlin
 
-- Non-streaming: `Image`
-- Streaming: `baml_client.types.Image?`
+- Non-streaming: `BamlImage`
+- Streaming: `BamlImage?`
 
 ---
 
@@ -236,8 +236,8 @@ class T { f image? }
 
 ### Kotlin
 
-- Non-streaming: `Image?`
-- Streaming: `baml_client.types.Image?`
+- Non-streaming: `BamlImage?`
+- Streaming: `BamlImage?`
 
 ---
 
@@ -271,8 +271,8 @@ class T { f audio }
 
 ### Kotlin
 
-- Non-streaming: `Audio`
-- Streaming: `baml_client.types.Audio?`
+- Non-streaming: `BamlAudio`
+- Streaming: `BamlAudio?`
 
 ---
 
@@ -306,8 +306,8 @@ class T { f audio? }
 
 ### Kotlin
 
-- Non-streaming: `Audio?`
-- Streaming: `baml_client.types.Audio?`
+- Non-streaming: `BamlAudio?`
+- Streaming: `BamlAudio?`
 
 ---
 

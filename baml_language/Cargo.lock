@@ -960,6 +960,7 @@ dependencies = [
  "cbindgen",
  "futures",
  "indexmap",
+ "jni",
  "libc",
  "once_cell",
  "prost",

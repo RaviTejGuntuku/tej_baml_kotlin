@@ -101,10 +101,10 @@ impl TypeKotlin {
                 format!("BoolK{}", if v { "True" } else { "False" })
             }),
             TypeKotlin::Media(media) => match media {
-                MediaTypeKotlin::Image => "Image".to_string(),
-                MediaTypeKotlin::Audio => "Audio".to_string(),
-                MediaTypeKotlin::Pdf => "PDF".to_string(),
-                MediaTypeKotlin::Video => "Video".to_string(),
+                MediaTypeKotlin::Image => "BamlImage".to_string(),
+                MediaTypeKotlin::Audio => "BamlAudio".to_string(),
+                MediaTypeKotlin::Pdf => "BamlPdf".to_string(),
+                MediaTypeKotlin::Video => "BamlVideo".to_string(),
             },
             TypeKotlin::TypeAlias { name, .. } => name.clone(),
             TypeKotlin::Class { name, .. } => name.clone(),
@@ -335,12 +335,12 @@ impl SerializeType for TypeKotlin {
 }
 
 impl SerializeType for MediaTypeKotlin {
-    fn serialize_type(&self, pkg: &CurrentRenderPackage) -> String {
+    fn serialize_type(&self, _pkg: &CurrentRenderPackage) -> String {
         match self {
-            MediaTypeKotlin::Image => format!("{}Image", Package::types().relative_from(pkg)),
-            MediaTypeKotlin::Audio => format!("{}Audio", Package::types().relative_from(pkg)),
-            MediaTypeKotlin::Pdf => format!("{}PDF", Package::types().relative_from(pkg)),
-            MediaTypeKotlin::Video => format!("{}Video", Package::types().relative_from(pkg)),
+            MediaTypeKotlin::Image => "BamlImage".to_string(),
+            MediaTypeKotlin::Audio => "BamlAudio".to_string(),
+            MediaTypeKotlin::Pdf => "BamlPdf".to_string(),
+            MediaTypeKotlin::Video => "BamlVideo".to_string(),
         }
     }
 }

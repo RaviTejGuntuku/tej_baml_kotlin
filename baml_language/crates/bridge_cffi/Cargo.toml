@@ -36,6 +36,9 @@ tokio = { workspace = true, features = [ "rt", "rt-multi-thread" ] }
 tokio-util = { workspace = true }
 vfs = { workspace = true }
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21.1"
+
 [build-dependencies]
 cbindgen = { workspace = true }
 

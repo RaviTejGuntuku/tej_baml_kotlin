@@ -16,15 +16,24 @@ dependencies {
 }
 ```
 
-You also need the BAML CLI to generate Kotlin code from your `.baml` files:
+You also need a Kotlin-capable BAML CLI to generate Kotlin code from your `.baml` files.
+
+### Preferred state
 
 ```bash
-# macOS
-brew install boundaryml/baml/baml
-
-# or via npm
-npm install -g @boundaryml/baml
+baml-cli --version
 ```
+
+If the globally installed `baml-cli` does not yet support Kotlin codegen, use this repo directly:
+
+```bash
+git clone https://github.com/RaviTejGuntuku/tej_baml_kotlin.git
+cd tej_baml_kotlin
+cargo build --manifest-path ./engine/cli/Cargo.toml
+./engine/target/debug/baml-cli --version
+```
+
+That public-fork workflow is the intended fallback for fresh-machine Kotlin demos.
 
 ## Quickstart
 
@@ -85,8 +94,16 @@ function ClassifySentiment(text: string) -> Sentiment {
 
 ### 2. Generate Kotlin code
 
+If your installed `baml-cli` supports Kotlin:
+
 ```bash
 baml-cli generate
+```
+
+If you are using this repo directly:
+
+```bash
+../tej_baml_kotlin/engine/target/debug/baml-cli generate
 ```
 
 This produces `src/main/kotlin/baml_client/` with typed data classes, enums, function wrappers, a type registry, and a generated runtime initializer — all generated from your `.baml` definitions.
@@ -220,19 +237,15 @@ Nested structured fields such as `List<Class>`, `Map<String, Class>`, optional n
 
 ## Android
 
-The SDK auto-detects Android at runtime and uses JNI instead of JNA. Setup requires copying the cross-compiled native library and a C JNI bridge into your Android app.
+The SDK auto-detects Android at runtime and uses JNI instead of JNA.
+
+The current Android packaging model is:
+
+- the app depends on `io.github.ravitejguntuku:baml-kotlin`
+- the app extracts `libbridge_cffi.so` from the SDK artifact during Gradle build
+- the app does not need an app-local JNI C bridge or CMake shim anymore
 
 ```kotlin
-// app/build.gradle.kts
-android {
-    externalNativeBuild {
-        cmake { path = file("src/main/cpp/CMakeLists.txt") }
-    }
-    defaultConfig {
-        ndk { abiFilters += listOf("arm64-v8a") }
-    }
-}
-
 dependencies {
     implementation("io.github.ravitejguntuku:baml-kotlin:0.1.0") {
         exclude(group = "net.java.dev.jna", module = "jna")
@@ -240,7 +253,43 @@ dependencies {
 }
 ```
 
-See [jni/](jni/) for the C bridge source and CMake config. See the [Building from Source](#building-from-source) section for cross-compilation instructions.
+This means Android app consumers no longer need to maintain:
+
+- `baml_jni.c`
+- `CMakeLists.txt`
+- `externalNativeBuild`
+
+They still need a published SDK artifact that contains the Android `libbridge_cffi.so` files for the required ABIs.
+
+### Fresh-install Android demo flow
+
+This is the current recommended public flow for a fresh machine:
+
+1. clone your Android app repo
+2. clone `RaviTejGuntuku/tej_baml_kotlin`
+3. run Kotlin codegen from this repo
+4. build/install the Android app
+
+Example:
+
+```bash
+git clone https://github.com/RaviTejGuntuku/kitchen_baml_android_app.git
+git clone https://github.com/RaviTejGuntuku/tej_baml_kotlin.git
+
+cd tej_baml_kotlin
+cargo build --manifest-path ./engine/cli/Cargo.toml
+
+cd ../kitchen_baml_android_app
+../tej_baml_kotlin/engine/target/debug/baml-cli generate --from ./baml_src
+./gradlew clean :app:installDebug
+```
+
+That uses:
+
+- Maven Central for runtime linking
+- this public fork for Kotlin-capable codegen
+
+This is reproducible on another laptop without relying on any private local paths.
 
 ## Tests
 
@@ -280,9 +329,12 @@ cd ../engine/language_client_kotlin && ./gradlew clean test
 ```bash
 cd baml_language
 cargo build -p bridge_cffi --release --target aarch64-linux-android
+cargo build -p bridge_cffi --release --target x86_64-linux-android
 ```
 
-NDK toolchain paths are configured in `.cargo/config.toml`.
+NDK toolchain paths are configured in `.cargo/config.toml` or via environment variables.
+
+Even though Android apps no longer compile a JNI shim locally, SDK maintainers still need the Android NDK toolchains when rebuilding these Rust `.so` files for publication.
 
 ### Publish
 

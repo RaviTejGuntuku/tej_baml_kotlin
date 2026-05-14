@@ -841,14 +841,14 @@ mod render_tests {
         );
 
         let classes = get_file(&files, "types/Classes.kt");
-        assert!(classes.contains("val photo: Image"), "Missing image field: {}", classes);
-        assert!(classes.contains("val doc: Image?"), "Missing optional image field");
+        assert!(classes.contains("val photo: BamlImage"), "Missing image field: {}", classes);
+        assert!(classes.contains("val doc: BamlImage?"), "Missing optional image field");
 
-        // Stream types should get fully-qualified prefix for media
+        // Stream types should reference SDK media classes directly
         let stream = get_file(&files, "stream_types/Classes.kt");
         assert!(
-            stream.contains("baml_client.types.Image?"),
-            "Streaming image should have baml_client.types. prefix: {}",
+            stream.contains("BamlImage?"),
+            "Streaming image should reference SDK media types directly: {}",
             stream
         );
     }

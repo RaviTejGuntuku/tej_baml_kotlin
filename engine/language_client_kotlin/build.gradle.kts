@@ -24,22 +24,21 @@ fun runCommand(
     vararg command: String,
     env: Map<String, String> = emptyMap()
 ) {
-    val stdout = ByteArrayOutputStream()
-    val stderr = ByteArrayOutputStream()
-    val result = providers.exec {
-        this.workingDir = workingDir
-        commandLine(*command)
-        environment(env)
-        standardOutput = stdout
-        errorOutput = stderr
-    }.result.get()
+    val processBuilder = ProcessBuilder(*command)
+        .directory(workingDir)
+        .redirectErrorStream(false)
+    processBuilder.environment().putAll(env)
+    val process = processBuilder.start()
+    val stdout = process.inputStream.readBytes().toString(Charsets.UTF_8)
+    val stderr = process.errorStream.readBytes().toString(Charsets.UTF_8)
+    val exitCode = process.waitFor()
 
-    if (result.exitValue != 0) {
+    if (exitCode != 0) {
         throw GradleException(
             buildString {
-                append("Command failed (${command.joinToString(" ")}), exit code ${result.exitValue}")
-                val err = stderr.toString().trim()
-                val out = stdout.toString().trim()
+                append("Command failed (${command.joinToString(" ")}), exit code $exitCode")
+                val err = stderr.trim()
+                val out = stdout.trim()
                 if (err.isNotEmpty()) {
                     append("\nSTDERR:\n")
                     append(err)

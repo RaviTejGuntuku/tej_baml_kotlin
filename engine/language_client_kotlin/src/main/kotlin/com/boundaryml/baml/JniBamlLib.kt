@@ -3,11 +3,9 @@ package com.boundaryml.baml
 /**
  * JNI-based implementation of [NativeBamlLib] for Android.
  *
- * Uses System.loadLibrary to load:
- *   1. libbridge_cffi.so — the Rust FFI library (from APK jniLibs)
- *   2. libbaml_jni.so — the thin C JNI bridge (from APK jniLibs)
- *
- * The C bridge (baml_jni.c) translates JNI calls to the C API exported by bridge_cffi.
+ * Uses System.loadLibrary to load `libbridge_cffi.so`, which now exports both:
+ *   1. the plain C ABI used elsewhere in the SDK
+ *   2. the Android JNI entrypoints used by this class
  */
 internal class JniBamlLib : NativeBamlLib {
 
@@ -18,13 +16,12 @@ internal class JniBamlLib : NativeBamlLib {
         fun ensureLoaded() {
             if (!loaded) {
                 System.loadLibrary("bridge_cffi")
-                System.loadLibrary("baml_jni")
                 loaded = true
             }
         }
 
         // --- Raw JNI native methods ---
-        // These map to functions in baml_jni.c with JNI naming:
+        // These map to JNI symbols exported directly from bridge_cffi:
         //   Java_com_boundaryml_baml_JniBamlLib_nativeXxx
 
         @JvmStatic external fun nativeVersion(): ByteArray
