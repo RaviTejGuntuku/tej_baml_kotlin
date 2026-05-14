@@ -18,22 +18,20 @@ dependencies {
 
 You also need a Kotlin-capable BAML CLI to generate Kotlin code from your `.baml` files.
 
-### Preferred state
+### Clone the Kotlin fork and set `baml-cli` to that binary
 
-```bash
-baml-cli --version
-```
-
-If the globally installed `baml-cli` does not yet support Kotlin codegen, use this repo directly:
+If the globally installed `baml-cli` does not yet support Kotlin codegen, clone this fork and put its built CLI binary on `PATH`:
 
 ```bash
 git clone https://github.com/RaviTejGuntuku/tej_baml_kotlin.git
 cd tej_baml_kotlin
 cargo build --manifest-path ./engine/cli/Cargo.toml
-./engine/target/debug/baml-cli --version
+export PATH="$(pwd)/engine/target/debug:$PATH"
+which baml-cli
+baml-cli --version
 ```
 
-That public-fork workflow is the intended fallback for fresh-machine Kotlin demos.
+That makes `baml-cli` resolve to the Kotlin-capable binary built from this fork.
 
 ## Quickstart
 
@@ -94,16 +92,10 @@ function ClassifySentiment(text: string) -> Sentiment {
 
 ### 2. Generate Kotlin code
 
-If your installed `baml-cli` supports Kotlin:
+After setting `PATH` to the binary from this fork:
 
 ```bash
 baml-cli generate
-```
-
-If you are using this repo directly:
-
-```bash
-../tej_baml_kotlin/engine/target/debug/baml-cli generate
 ```
 
 This produces `src/main/kotlin/baml_client/` with typed data classes, enums, function wrappers, a type registry, and a generated runtime initializer — all generated from your `.baml` definitions.
@@ -145,20 +137,6 @@ export OPENAI_API_KEY=sk-...
 ```
 
 ## More Examples
-
-### Streaming
-
-```kotlin
-BamlRuntime.init(mapOf("OPENAI_API_KEY" to requireNotNull(System.getenv("OPENAI_API_KEY"))))
-
-val stream = BamlStreamFunctions
-    .ExtractPersonStream("John is 30, john@example.com")
-
-stream.collect { result ->
-    if (result.hasStreamData) println("Partial: ${result.streamData}")
-    if (result.hasData) println("Final: ${result.data}")
-}
-```
 
 ### Per-call client override
 
@@ -223,12 +201,11 @@ Generated Kotlin code no longer requires an app-local compatibility shim to:
 - inject provider env vars into runtime creation,
 - or decode nested structured outputs.
 
-Nested structured fields such as `List<Class>`, `Map<String, Class>`, optional nested classes, checked values, and stream-state wrappers are recursively materialized by generated decode code through SDK `Serde.coerce*` helpers. This prevents JVM-erased casts like `List<LinkedHashMap> as List<MyType>` from leaking into app code.
+Nested structured fields such as `List<Class>`, `Map<String, Class>`, optional nested classes, and checked values are recursively materialized by generated decode code through SDK `Serde.coerce*` helpers. This prevents JVM-erased casts like `List<LinkedHashMap> as List<MyType>` from leaking into app code.
 
 ### Features
 
 - Async function calls via Kotlin coroutines (`suspend fun`)
-- Streaming via `Flow<BamlResult>` with partial results
 - Structured output: classes, enums, unions, nested types, optionals, lists, maps
 - Per-call client override (`CallOptions`)
 - Parse mode (raw LLM text -> typed result)
@@ -268,7 +245,8 @@ This is the current recommended public flow for a fresh machine:
 1. clone your Android app repo
 2. clone `RaviTejGuntuku/tej_baml_kotlin`
 3. run Kotlin codegen from this repo
-4. build/install the Android app
+4. put the built fork binary on `PATH`
+5. build/install the Android app
 
 Example:
 
@@ -278,9 +256,10 @@ git clone https://github.com/RaviTejGuntuku/tej_baml_kotlin.git
 
 cd tej_baml_kotlin
 cargo build --manifest-path ./engine/cli/Cargo.toml
+export PATH="$(pwd)/engine/target/debug:$PATH"
 
 cd ../kitchen_baml_android_app
-../tej_baml_kotlin/engine/target/debug/baml-cli generate --from ./baml_src
+baml-cli generate --from ./baml_src
 ./gradlew clean :app:installDebug
 ```
 
@@ -298,7 +277,7 @@ The SDK includes focused unit and generated-code regression tests for:
 - runtime initialization and generated type registration,
 - recursive decoding of nested structured outputs,
 - generated wrappers calling through the generated runtime,
-- and standard encode/decode, streaming, and callback behavior.
+- and standard encode/decode and callback behavior.
 
 See [TESTS.md](TESTS.md) for the current test inventory and commands.
 
